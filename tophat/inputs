@@ -1,0 +1,36 @@
+&params
+
+ nx = 256
+ tmax = 10.0d0
+  
+ ppm_temp = F
+
+ problem_name = "tophat"
+
+ plot_dt = 1.0d0
+
+ xlboundary = "periodic"
+ xrboundary = "periodic"
+
+ godunov_type = 0
+
+ cfl = 0.5
+
+ lagrange_remap = T
+ remap_order = 0
+
+/
+
+&problem
+
+ rho_t = 2.0d0
+ p_t   = 1.0d0
+
+ rho_l = 1.0d0
+ p_l   = 1.0d0
+
+ width = 0.125d0
+
+ v_adv = 10.0d0
+
+/
