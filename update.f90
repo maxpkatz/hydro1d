@@ -100,19 +100,19 @@ contains
 
              do n = 1, 3
 
-                dx = U % grid % dx
+!                dx = U % grid % dx
                 
-                ull = U_temp % data(i-2,n)
-                ul  = U_temp % data(i-1,n)
-                uc  = U_temp % data(i  ,n)
-                ur  = U_temp % data(i+1,n)
-                urr = U_temp % data(i+2,n)
+!                ull = U_temp % data(i-2,n)
+!                ul  = U_temp % data(i-1,n)
+!                uc  = U_temp % data(i  ,n)
+!                ur  = U_temp % data(i+1,n)
+!                urr = U_temp % data(i+2,n)
                 
-                dul = (ul - ull) 
-                duc = (uc -  ul) 
-                dur = (urr - ur) 
+!                dul = (ul - ull) 
+!                duc = (uc -  ul) 
+!                dur = (urr - ur) 
 
-                U % data(i,n) = f * 0.5 * (ul + dul * (0.5 - f)
+!                U % data(i,n) = f * 0.5 * (ul + dul * (0.5 - f)
                 
              enddo
              
