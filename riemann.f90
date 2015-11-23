@@ -12,12 +12,12 @@ module riemann_module
 
 contains
   
-  subroutine solve_riemann(Uin_l, Uin_r, fluxes)
+  subroutine solve_riemann(Uin_l, Uin_r, vf, fluxes)
 
     use params_module, only: gamma
     use eos_module
 
-    type(gridedgevar_t), intent(in   ) :: Uin_l, Uin_r
+    type(gridedgevar_t), intent(in   ) :: Uin_l, Uin_r, vf
     type(gridedgevar_t), intent(inout) :: fluxes
 
     !  Solve riemann shock tube problem for a general equation of
@@ -239,6 +239,10 @@ contains
 
        endif
 
+       
+
+       ! Return to inertial frame
+       u_state = u_state + vf%data(i,1)
 
        ! reflect BC hack
        !if (i == Uin_l%grid%lo .and. Uin_l%grid%xlboundary == "reflect") then
@@ -246,10 +250,10 @@ contains
        !endif
 
        ! compute the fluxes
-       fluxes%data(i,iudens) = rho_state*u_state
-       fluxes%data(i,iumomx) = rho_state*u_state*u_state + p_state
-       fluxes%data(i,iuener) = rhoe_state*u_state + &
-            0.5_dp_t*rho_state*u_state**3 + p_state*u_state
+       fluxes%data(i,iudens) = rho_state*(u_state-vf%data(i,1))
+       fluxes%data(i,iumomx) = rho_state*u_state*(u_state-vf%data(i,1)) + p_state
+       fluxes%data(i,iuener) = rhoe_state*(u_state-vf%data(i,1)) + &
+            0.5_dp_t*rho_state*u_state**2*(u_state-vf%data(i,1)) + p_state*u_state
 
     enddo
 

@@ -34,6 +34,8 @@ module params_module
 
   ! hydro parameters
   integer, save :: godunov_type = 2
+  logical, save :: lagrange_remap = .false.
+  integer, save :: remap_order = 0
   logical, save :: ppm_temp = .false.
   real (kind=dp_t), save :: grav = 0.0_dp_t
   
@@ -52,6 +54,7 @@ module params_module
                     init_shrink, dt_change, tmax, &
                     cfl, &
                     gamma, &
+                    lagrange_remap, remap_order, &
                     godunov_type, &
                     ppm_temp, &
                     grav, &

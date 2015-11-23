@@ -11,7 +11,8 @@ $(odir)/dt.o : $(odir)/grid.o
 $(odir)/dt.o : $(odir)/params.o
 $(odir)/dt.o : $(odir)/eos.o
 $(odir)/dt.o : $(odir)/variables.o
- 
+$(odir)/dt.o : $(odir)/comoving.o
+
 $(odir)/eigen.o : $(odir)/datatypes.o
 $(odir)/eigen.o : $(odir)/variables.o
  
@@ -28,7 +29,8 @@ $(odir)/flatten.o : $(odir)/variables.o
 $(odir)/godunov.o : $(odir)/datatypes.o
 $(odir)/godunov.o : $(odir)/grid.o
 $(odir)/godunov.o : $(odir)/variables.o
- 
+$(odir)/godunov.o : $(odir)/comoving.o
+
 $(odir)/grid.o : $(odir)/datatypes.o
  
 $(odir)/main.o : $(odir)/datatypes.o
@@ -47,7 +49,8 @@ $(odir)/main.o : $(odir)/ppm.o
 $(odir)/main.o : $(odir)/ppm_T.o
 $(odir)/main.o : $(odir)/riemann.o
 $(odir)/main.o : $(odir)/update.o
- 
+$(odir)/main.o : $(odir)/comoving.o
+
 $(odir)/output.o : $(odir)/grid.o
 $(odir)/output.o : $(odir)/datatypes.o
 $(odir)/output.o : $(odir)/params.o
@@ -86,7 +89,8 @@ $(odir)/riemann.o : $(odir)/grid.o
 $(odir)/riemann.o : $(odir)/variables.o
 $(odir)/riemann.o : $(odir)/params.o
 $(odir)/riemann.o : $(odir)/eos.o
- 
+$(odir)/riemann.o : $(odir)/comoving.o
+
 $(odir)/run_diag.o : $(odir)/grid.o
 $(odir)/run_diag.o : $(odir)/datatypes.o
 $(odir)/run_diag.o : $(odir)/params.o
@@ -97,6 +101,7 @@ $(odir)/update.o : $(odir)/datatypes.o
 $(odir)/update.o : $(odir)/grid.o
 $(odir)/update.o : $(odir)/variables.o
 $(odir)/update.o : $(odir)/params.o
+$(odir)/update.o : $(odir)/comoving.o
  
 $(odir)/user_bc.o : $(odir)/grid.o
 $(odir)/user_bc.o : $(odir)/variables.o

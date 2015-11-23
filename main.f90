@@ -14,6 +14,7 @@ program hydro1d
   use interface_states_plm_module
   use interface_states_ppm_module
   use interface_states_ppm_temp_module
+  use interface_velocities_module
   use riemann_module
   use update_module
 
@@ -21,7 +22,7 @@ program hydro1d
 
   type(grid_t) :: grid
   type(gridvar_t) :: U
-  type(gridedgevar_t) :: U_l, U_r, fluxes
+  type(gridedgevar_t) :: U_l, U_r, vf, fluxes
 
   integer :: n, ng
   real (kind=dp_t) :: t, dt, dt_new
@@ -40,13 +41,15 @@ program hydro1d
 
 
   ! build the grid and storage for grid variables, interface states,
-  ! and fluxes
+  ! interface velocities, and fluxes
   call build(grid, nx, ng, xmin, xmax, xlboundary, xrboundary)
 
   call build(U, grid, ncons)
   call build(U_l, grid, ncons)
   call build(U_r, grid, ncons)
 
+  call build(vf, grid, 1)
+  
   call build(fluxes, grid, ncons)
 
 
@@ -69,8 +72,11 @@ program hydro1d
      ! set the boundary conditions
      call fillBCs(U)
 
+     ! construct the face velocities
+     call make_interface_velocities(U, vf)         
+     
      ! compute the timestep
-     call compute_dt(U, n, dt_new)
+     call compute_dt(U, vf, n, dt_new)
      if (n > 0) then
         dt = min(dt_change*dt, dt_new)
      else
@@ -79,10 +85,10 @@ program hydro1d
 
      if (t + dt > tmax) dt = tmax - t
 
-
+     
      ! construct the interface states
      if (godunov_type == 0) then
-        call make_interface_states_godunov(U, U_l, U_r, dt)
+        call make_interface_states_godunov(U, U_l, U_r, vf, dt)
      else if (godunov_type == 1) then
         call make_interface_states_plm(U, U_l, U_r, dt)
      else if (godunov_type == 2) then
@@ -95,11 +101,11 @@ program hydro1d
 
 
      ! compute the fluxes
-     call solve_riemann(U_l, U_r, fluxes)
+     call solve_riemann(U_l, U_r, vf, fluxes)
 
 
      ! do the conservative update
-     call update(U, fluxes, dt)
+     call update(U, vf, fluxes, dt)
 
      t = t + dt
      n = n + 1
