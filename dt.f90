@@ -27,7 +27,6 @@ contains
 
     integer :: i
     real (kind=dp_t) :: cs, p, e, rho
-
     
     dt = huge(0.0_dp_t)
 
@@ -42,15 +41,7 @@ contains
 
        cs = sqrt(gamma*p/U%data(i,iudens))
 
-       ! If the zone faces move in a Lagrangian manner, then the timestep restriction
-       ! is the smaller of dx / cs and dx / vf.
-
-       if (invariant_hydro) then
-          dt = min(dt, U%grid%dx / cs, U%grid%dx / maxval(abs(vf%data(i:i+1,1))))
-       else
-          dt = min(dt, U%grid%dx/(abs(U%data(i,iumomx)/U%data(i,iudens)) + cs))
-       endif
-       
+       dt = min(dt, U%grid%dx/(abs(U%data(i,iumomx)/U%data(i,iudens)) + cs))
        
     enddo    
 
