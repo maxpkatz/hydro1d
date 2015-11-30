@@ -21,7 +21,7 @@ contains
     integer :: i
 
     do i = U%grid%lo, U%grid%hi+1
-       if (lagrange_remap) then
+       if (invariant_hydro) then
           vf%data(i,1) = 0.5 * (U%data(i,2) / U%data(i,1) + U%data(i-1,2) / U%data(i-1,1))
        else
           vf%data(i,1) = 0.0

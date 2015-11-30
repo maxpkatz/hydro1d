@@ -107,7 +107,7 @@ contains
        
        ! figure out which state we are in, based on the location of
        ! the waves
-       if (ustar > 0_dp_t) then
+       if (ustar > -vf % data(i,1)) then
 
           ! contact is moving right, we need to understand the L and
           ! *L states
@@ -120,7 +120,7 @@ contains
              ! the wave is a shock -- find the shock speed
              sigma = (lambda_l + lambdastar_l)/2.0_dp_t
              
-             if (sigma > 0.0_dp_t) then
+             if (sigma > -vf % data(i,1)) then
                 ! shock is moving to the right -- solution is L state
                 rho_state = rho_l
                 u_state = u_l
@@ -138,7 +138,7 @@ contains
 
           else
              ! the wave is a rarefaction
-             if (lambda_l < 0.0_dp_t .and. lambdastar_l < 0.0_dp_t) then
+             if (lambda_l < -vf % data(i,1) .and. lambdastar_l < -vf % data(i,1)) then
                 ! rarefaction fan is moving to the left -- solution is
                 ! *L state
                 rho_state = rhostar_l
@@ -146,7 +146,7 @@ contains
                 p_state = pstar
                 rhoe_state = rhoestar_l
                 
-             else if (lambda_l > 0.0_dp_t .and. lambdastar_l > 0.0_dp_t) then
+             else if (lambda_l > -vf % data(i,1) .and. lambdastar_l > -vf % data(i,1)) then
                 ! rarefaction fan is moving to the right -- solution
                 ! is L state
                 rho_state = rho_l
@@ -168,7 +168,7 @@ contains
           endif
                           
 
-       else if (ustar < 0_dp_t) then
+       else if (ustar < -vf % data(i,1)) then
           
           ! contact moving left, we need to understand the R and *R
           ! states
@@ -181,7 +181,7 @@ contains
              ! the wave if a shock -- find the shock speed
              sigma = (lambda_r + lambdastar_r)/2.0_dp_t
              
-             if (sigma > 0.0_dp_t) then
+             if (sigma > -vf % data(i,1)) then
                 ! shock is moving to the right -- solution is *R state
                 rho_state = rhostar_r
                 u_state = ustar
@@ -199,7 +199,7 @@ contains
 
           else
              ! the wave is a rarefaction
-             if (lambda_r < 0.0_dp_t .and. lambdastar_r < 0.0_dp_t) then
+             if (lambda_r < -vf % data(i,1) .and. lambdastar_r < -vf % data(i,1)) then
                 ! rarefaction fan is moving to the left -- solution is
                 ! R state
                 rho_state = rho_r
@@ -207,7 +207,7 @@ contains
                 p_state = p_r
                 rhoe_state = rhoe_r
                 
-             else if (lambda_r > 0.0_dp_t .and. lambdastar_r > 0.0_dp_t) then
+             else if (lambda_r > -vf % data(i,1) .and. lambdastar_r > -vf % data(i,1)) then
                 ! rarefaction fan is moving to the right -- solution
                 ! is *R state
                 rho_state = rhostar_r
@@ -230,7 +230,7 @@ contains
 
 
 
-       else ! ustar == 0
+       else ! ustar == -vf
 
           rho_state = 0.5_dp_t*(rhostar_l + rhostar_r)
           u_state = ustar
@@ -241,19 +241,16 @@ contains
 
        
 
-       ! Return to inertial frame
-       u_state = u_state + vf%data(i,1)
-
        ! reflect BC hack
        !if (i == Uin_l%grid%lo .and. Uin_l%grid%xlboundary == "reflect") then
        !   u_state = 0.0_dp_t
        !endif
 
        ! compute the fluxes
-       fluxes%data(i,iudens) = rho_state*(u_state-vf%data(i,1))
-       fluxes%data(i,iumomx) = rho_state*u_state*(u_state-vf%data(i,1)) + p_state
-       fluxes%data(i,iuener) = rhoe_state*(u_state-vf%data(i,1)) + &
-            0.5_dp_t*rho_state*u_state**2*(u_state-vf%data(i,1)) + p_state*u_state
+       fluxes%data(i,iudens) = rho_state*u_state
+       fluxes%data(i,iumomx) = rho_state*u_state*u_state + p_state
+       fluxes%data(i,iuener) = rhoe_state*u_state + &
+            0.5_dp_t*rho_state*u_state**2*u_state + p_state*u_state
 
     enddo
 

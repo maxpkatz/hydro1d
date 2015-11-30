@@ -45,7 +45,7 @@ contains
        ! If the zone faces move in a Lagrangian manner, then the timestep restriction
        ! is the smaller of dx / cs and dx / vf.
 
-       if (lagrange_remap) then
+       if (invariant_hydro) then
           dt = min(dt, U%grid%dx / cs, U%grid%dx / maxval(abs(vf%data(i:i+1,1))))
        else
           dt = min(dt, U%grid%dx/(abs(U%data(i,iumomx)/U%data(i,iudens)) + cs))

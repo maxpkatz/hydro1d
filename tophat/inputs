@@ -16,8 +16,7 @@
 
  cfl = 0.5
 
- lagrange_remap = T
- remap_order = 0
+ invariant_hydro = T
 
 /
 
@@ -31,6 +30,6 @@
 
  width = 0.125d0
 
- v_adv = 10.0d0
+ v_adv = 1.0d0
 
 /
