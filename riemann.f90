@@ -239,7 +239,9 @@ contains
 
        endif
 
+       ! Transform back to the space-fixed frame
        
+       u_state = u_state + vf % data(i,1)
 
        ! reflect BC hack
        !if (i == Uin_l%grid%lo .and. Uin_l%grid%xlboundary == "reflect") then
