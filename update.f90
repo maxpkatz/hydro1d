@@ -22,10 +22,8 @@ contains
 
     type(gridvar_t) :: Uold
 
-    integer :: i, n
+    integer :: i
 
-    double precision :: dtdx, f(-1:1)
-    
     ! store the old state
     call build(Uold, U%grid, U%nvar)
     do i = U%grid%lo-1, U%grid%hi+1
