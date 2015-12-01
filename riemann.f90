@@ -155,7 +155,7 @@ contains
                 rhoe_state = rhoe_l
                 
              else
-                ! rarefaction spans x/t = 0 -- interpolate
+                ! rarefaction spans x/t = -v_f -- interpolate
                 alpha = lambda_l/(lambda_l - lambdastar_l)
                 
                 rho_state  = alpha*rhostar_l  + (1.0_dp_t - alpha)*rho_l
@@ -216,7 +216,7 @@ contains
                 rhoe_state = rhoestar_r
                 
              else
-                ! rarefaction spans x/t = 0 -- interpolate
+                ! rarefaction spans x/t = -vf -- interpolate
                 alpha = lambda_r/(lambda_r - lambdastar_r)
                 
                 rho_state  = alpha*rhostar_r  + (1.0_dp_t - alpha)*rho_r
