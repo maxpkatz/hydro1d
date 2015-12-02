@@ -20,7 +20,7 @@ contains
     
     integer :: i
 
-    do i = U%grid%lo-1, U%grid%hi+2
+    do i = U%grid%lo-U%grid%ng+1, U%grid%hi+U%grid%ng
        if (invariant_hydro) then
           vf%data(i,1) = 0.5 * (U%data(i,2) / U%data(i,1) + U%data(i-1,2) / U%data(i-1,1))
        else
