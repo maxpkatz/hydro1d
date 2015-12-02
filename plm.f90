@@ -24,20 +24,24 @@ contains
 
     type(gridvar_t) :: Q
     type(gridedgevar_t) :: Q_l, Q_r
-    type(gridvar_t) :: ldelta, temp
+    type(gridvar_t) :: ldelta_m, ldelta_p, temp
 
+    type(gridvar_t) :: Q_temp
+    
     real (kind=dp_t) :: rvec_m(nwaves,nprim), lvec_m(nwaves,nprim), eval_m(nwaves)
     real (kind=dp_t) :: rvec_p(nwaves,nprim), lvec_p(nwaves,nprim), eval_p(nwaves)    
-    real (kind=dp_t) :: dQ(nprim)
+    real (kind=dp_t) :: dQ_m(nprim), dQ_p(nprim)
 
     real (kind=dp_t) :: r, ux_m, ux_p, p, cs
-    real (kind=dp_t) :: ldr, ldu, ldp
+    real (kind=dp_t) :: ldr_m, ldu_m, ldp_m
+    real (kind=dp_t) :: ldr_p, ldu_p, ldp_p    
     real (kind=dp_t) :: r_xm, r_xp, u_xm, u_xp, p_xm, p_xp
     real (kind=dp_t) :: beta_xm(nwaves), beta_xp(nwaves)
     real (kind=dp_t) :: sum_xm, sum_xp
     real (kind=dp_t) :: sum_m, sum_p
-
-    type(gridvar_t) :: xi
+    real (kind=dp_t) :: Q_m, Q_c, Q_p
+    
+    type(gridvar_t) :: xi_m, xi_p
 
     real (kind=dp_t) :: dtdx
 
@@ -125,8 +129,24 @@ contains
     !-------------------------------------------------------------------------
     ! compute the flattening coefficients
     !-------------------------------------------------------------------------
-    call build(xi, U%grid, 1)
-    call flatten(Q, xi)
+    call build(xi_m, U%grid, 1)
+    call build(xi_p, U%grid, 1)
+
+    Q_temp = Q
+    
+    do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
+       Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i,1)
+    enddo
+    
+    call flatten(Q_temp, xi_m)
+
+    Q_temp = Q
+    
+    do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
+       Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i+1,1)
+    enddo    
+    
+    call flatten(Q_temp, xi_p)
 
 
     !-------------------------------------------------------------------------
@@ -138,20 +158,32 @@ contains
     ! Saltzman 1994, page 156
     
     call build(temp, U%grid, 1)
-    call build(ldelta, U%grid, nprim)
+    call build(ldelta_m, U%grid, nprim)
+    call build(ldelta_p, U%grid, nprim)
 
+    ! First do the left-edge slopes
+    
     do n = 1, nprim
 
        ! first do the normal MC limiting 
        do i = Q%grid%lo-3, Q%grid%hi+3
 
-          test = (Q%data(i+1,n) - Q%data(i,n))*(Q%data(i,n) - Q%data(i-1,n))
+          Q_m = Q % data(i-1,n)
+          Q_c = Q % data(i  ,n)
+          Q_p = Q % data(i+1,n)
+
+          if (n == 2) then
+             Q_m = Q_m - vf % data(i,1)
+             Q_c = Q_c - vf % data(i,1)
+             Q_p = Q_p - vf % data(i,1)
+          endif
+          
+          test = (Q_p - Q_c)*(Q_c - Q_m)
 
           if (test > ZERO) then
-             temp%data(i,1) = min(HALF*abs(Q%data(i+1,n) - Q%data(i-1,n)), &
-                                  min(2.0_dp_t*abs(Q%data(i+1,n) - Q%data(i,n)), &
-                                      2.0_dp_t*abs(Q%data(i,n) - Q%data(i-1,n)))) * &
-                              sign(ONE,Q%data(i+1,n) - Q%data(i-1,n))
+             temp%data(i,1) = min(HALF*abs(Q_p - Q_m), &
+                                  min(2.0_dp_t*abs(Q_p - Q_c), 2.0_dp_t*abs(Q_c - Q_m))) * &
+                              sign(ONE,Q_p - Q_m)
 
           else
              temp%data(i,1) = ZERO
@@ -162,34 +194,119 @@ contains
 
        ! now do the fourth order part
        do i = Q%grid%lo-2, Q%grid%hi+2
+
+          Q_m = Q%data(i-1,n)
+          Q_c = Q%data(i  ,n)
+          Q_p = Q%data(i+1,n)
+
+          if (n == 2) then
+             Q_m = Q_m - vf % data(i,1)
+             Q_c = Q_c - vf % data(i,1)
+             Q_p = Q_p - vf % data(i,1)
+          endif
           
-          test = (Q%data(i+1,n) - Q%data(i,n))*(Q%data(i,n) - Q%data(i-1,n))
+          test = (Q_p - Q_c)*(Q_c - Q_m)
 
           if (test > ZERO) then
-             ldelta%data(i,n) = &
-                  min((2.0_dp_t/3.0_dp_t)*abs(Q%data(i+1,n) - Q%data(i-1,n) - &
+             ldelta_m%data(i,n) = &
+                  min((2.0_dp_t/3.0_dp_t)*abs(Q_p - Q_m - &
                       0.25_dp_t*(temp%data(i+1,1) + temp%data(i-1,1))), &
-                  min(2.0*abs(Q%data(i+1,n) - Q%data(i,n)), &
-                      2.0*abs(Q%data(i,n) - Q%data(i-1,n)))) * &
-                  sign(ONE, Q%data(i+1,n) - Q%data(i-1,n))
+                  min(2.0*abs(Q_p - Q_c), &
+                      2.0*abs(Q_c - Q_m))) * &
+                  sign(ONE, Q_p - Q_m)
           else
-             ldelta%data(i,n) = ZERO
+             ldelta_m%data(i,n) = ZERO
           endif
 
        enddo
-
+          
     enddo
 
 
     ! apply flattening to the slopes
     do n = 1, nprim
        do i = Q%grid%lo-2, Q%grid%hi+2
-          ldelta%data(i,n) = xi%data(i,1)*ldelta%data(i,n)
+          ldelta_m%data(i,n) = xi_m%data(i,1)*ldelta_m%data(i,n)
        enddo
     enddo
 
+
+
+
+    ! Now do the right-edge slopes
+    
+    do n = 1, nprim
+
+       ! first do the normal MC limiting 
+       do i = Q%grid%lo-3, Q%grid%hi+3
+
+          Q_m = Q % data(i-1,n)
+          Q_c = Q % data(i  ,n)
+          Q_p = Q % data(i+1,n)
+
+          if (n == 2) then
+             Q_m = Q_m - vf % data(i+1,1)
+             Q_c = Q_c - vf % data(i+1,1)
+             Q_p = Q_p - vf % data(i+1,1)
+          endif
+          
+          test = (Q_p - Q_c)*(Q_c - Q_m)
+
+          if (test > ZERO) then
+             temp%data(i,1) = min(HALF*abs(Q_p - Q_m), &
+                                  min(2.0_dp_t*abs(Q_p - Q_c), 2.0_dp_t*abs(Q_c - Q_m))) * &
+                              sign(ONE,Q_p - Q_m)
+
+          else
+             temp%data(i,1) = ZERO
+          endif
+
+       enddo
+    
+
+       ! now do the fourth order part
+       do i = Q%grid%lo-2, Q%grid%hi+2
+
+          Q_m = Q%data(i-1,n)
+          Q_c = Q%data(i  ,n)
+          Q_p = Q%data(i+1,n)
+
+          if (n == 2) then
+             Q_m = Q_m - vf % data(i+1,1)
+             Q_c = Q_c - vf % data(i+1,1)
+             Q_p = Q_p - vf % data(i+1,1)
+          endif
+          
+          test = (Q_p - Q_c)*(Q_c - Q_m)
+
+          if (test > ZERO) then
+             ldelta_p%data(i,n) = &
+                  min((2.0_dp_t/3.0_dp_t)*abs(Q_p - Q_m - &
+                      0.25_dp_t*(temp%data(i+1,1) + temp%data(i-1,1))), &
+                  min(2.0*abs(Q_p - Q_c), &
+                      2.0*abs(Q_c - Q_m))) * &
+                  sign(ONE, Q_p - Q_m)
+          else
+             ldelta_p%data(i,n) = ZERO
+          endif
+
+       enddo
+          
+    enddo
+
+
+    ! apply flattening to the slopes
+    do n = 1, nprim
+       do i = Q%grid%lo-2, Q%grid%hi+2
+          ldelta_p%data(i,n) = xi_p%data(i,1)*ldelta_p%data(i,n)
+       enddo
+    enddo
+
+
+    
     call destroy(temp)
-    call destroy(xi)
+    call destroy(xi_m)
+    call destroy(xi_p)
 
 
     !-------------------------------------------------------------------------
@@ -249,11 +366,17 @@ contains
        ux_p = Q%data(i,iqxvel) - vf % data(i+1,1)
        p    = Q%data(i,iqpres)
 
-       ldr = ldelta%data(i,iqdens)
-       ldu = ldelta%data(i,iqxvel)
-       ldp = ldelta%data(i,iqpres)
+       ldr_m = ldelta_m%data(i,iqdens)
+       ldu_m = ldelta_m%data(i,iqxvel)
+       ldp_m = ldelta_m%data(i,iqpres)
 
-       dQ(:) = [ ldr, ldu, ldp ]
+       dQ_m(:) = [ ldr_m, ldu_m, ldp_m ]
+
+       ldr_p = ldelta_p%data(i,iqdens)
+       ldu_p = ldelta_p%data(i,iqxvel)
+       ldp_p = ldelta_p%data(i,iqpres)
+
+       dQ_p(:) = [ ldr_p, ldu_p, ldp_p ]
 
        ! Subtract off the 
        
@@ -273,14 +396,14 @@ contains
        ! These expressions are the V_{L,R} in Colella (1990) at the 
        ! bottom of page 191.  They are also in Saltzman (1994) as
        ! V_ref on page 161.
-       r_xp = r + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldr
-       r_xm = r - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldr
+       r_xp = r + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldr_p
+       r_xm = r - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldr_m
 
-       u_xp = ux_p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldu
-       u_xm = ux_m - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldu
+       u_xp = ux_p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldu_p
+       u_xm = ux_m - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldu_m
 
-       p_xp = p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldp
-       p_xm = p - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldp
+       p_xp = p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldp_p
+       p_xm = p - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldp_m
 
        !                                                   ^
        ! Now compute the interface states.   These are the V expressions
@@ -294,8 +417,8 @@ contains
 
           ! dot product of the current left eigenvector with the
           ! primitive variable jump
-          sum_m = dot_product(lvec_m(m,:),dQ(:))
-          sum_p = dot_product(lvec_p(m,:),dQ(:))
+          sum_m = dot_product(lvec_m(m,:),dQ_m(:))
+          sum_p = dot_product(lvec_p(m,:),dQ_p(:))
 
           ! here the sign() function makes sure we only add the right-moving
           ! waves
@@ -350,7 +473,8 @@ contains
     enddo
 
     ! clean-up
-    call destroy(ldelta)
+    call destroy(ldelta_p)
+    call destroy(ldelta_m)
 
 
     !-------------------------------------------------------------------------
