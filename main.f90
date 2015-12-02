@@ -90,7 +90,7 @@ program hydro1d
      if (godunov_type == 0) then
         call make_interface_states_godunov(U, U_l, U_r, vf, dt)
      else if (godunov_type == 1) then
-        call make_interface_states_plm(U, U_l, U_r, dt)
+        call make_interface_states_plm(U, U_l, U_r, vf, dt)
      else if (godunov_type == 2) then
         if (ppm_temp) then
            call make_interface_states_ppm_temp(U, U_l, U_r, dt)

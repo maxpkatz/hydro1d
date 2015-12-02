@@ -16,25 +16,26 @@ module interface_states_plm_module
 
 contains
   
-  subroutine make_interface_states_plm(U, U_l, U_r, dt)
+  subroutine make_interface_states_plm(U, U_l, U_r, vf, dt)
 
     type(gridvar_t),     intent(in   ) :: U
-    type(gridedgevar_t), intent(inout) :: U_l, U_r
+    type(gridedgevar_t), intent(inout) :: U_l, U_r, vf
     real (kind=dp_t),    intent(in   ) :: dt
 
     type(gridvar_t) :: Q
     type(gridedgevar_t) :: Q_l, Q_r
     type(gridvar_t) :: ldelta, temp
 
-    real (kind=dp_t) :: rvec(nwaves,nprim), lvec(nwaves,nprim), eval(nwaves)
+    real (kind=dp_t) :: rvec_m(nwaves,nprim), lvec_m(nwaves,nprim), eval_m(nwaves)
+    real (kind=dp_t) :: rvec_p(nwaves,nprim), lvec_p(nwaves,nprim), eval_p(nwaves)    
     real (kind=dp_t) :: dQ(nprim)
 
-    real (kind=dp_t) :: r, ux, p, cs
+    real (kind=dp_t) :: r, ux_m, ux_p, p, cs
     real (kind=dp_t) :: ldr, ldu, ldp
     real (kind=dp_t) :: r_xm, r_xp, u_xm, u_xp, p_xm, p_xp
     real (kind=dp_t) :: beta_xm(nwaves), beta_xp(nwaves)
     real (kind=dp_t) :: sum_xm, sum_xp
-    real (kind=dp_t) :: sum
+    real (kind=dp_t) :: sum_m, sum_p
 
     type(gridvar_t) :: xi
 
@@ -243,9 +244,10 @@ contains
 
     do i = U%grid%lo-1, U%grid%hi+1
 
-       r  = Q%data(i,iqdens)
-       ux = Q%data(i,iqxvel)
-       p  = Q%data(i,iqpres)
+       r    = Q%data(i,iqdens)
+       ux_m = Q%data(i,iqxvel) - vf % data(i  ,1)
+       ux_p = Q%data(i,iqxvel) - vf % data(i+1,1)
+       p    = Q%data(i,iqpres)
 
        ldr = ldelta%data(i,iqdens)
        ldu = ldelta%data(i,iqxvel)
@@ -253,12 +255,15 @@ contains
 
        dQ(:) = [ ldr, ldu, ldp ]
 
+       ! Subtract off the 
+       
        ! compute the sound speed
        cs = sqrt(gamma*p/r)
 
 
        ! get the eigenvalues and eigenvectors
-       call eigen(r, ux, p, cs, lvec, rvec, eval)
+       call eigen(r, ux_p, p, cs, lvec_p, rvec_p, eval_p)
+       call eigen(r, ux_m, p, cs, lvec_m, rvec_m, eval_m)
 
 
        ! Define the reference states (here xp is the right interface
@@ -268,14 +273,14 @@ contains
        ! These expressions are the V_{L,R} in Colella (1990) at the 
        ! bottom of page 191.  They are also in Saltzman (1994) as
        ! V_ref on page 161.
-       r_xp = r + HALF*(ONE - dtdx*max(eval(3), ZERO))*ldr
-       r_xm = r - HALF*(ONE + dtdx*min(eval(1), ZERO))*ldr
+       r_xp = r + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldr
+       r_xm = r - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldr
 
-       u_xp = ux + HALF*(ONE - dtdx*max(eval(3), ZERO))*ldu
-       u_xm = ux - HALF*(ONE + dtdx*min(eval(1), ZERO))*ldu
+       u_xp = ux_p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldu
+       u_xm = ux_m - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldu
 
-       p_xp = p + HALF*(ONE - dtdx*max(eval(3), ZERO))*ldp
-       p_xm = p - HALF*(ONE + dtdx*min(eval(1), ZERO))*ldp
+       p_xp = p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldp
+       p_xm = p - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldp
 
        !                                                   ^
        ! Now compute the interface states.   These are the V expressions
@@ -289,28 +294,29 @@ contains
 
           ! dot product of the current left eigenvector with the
           ! primitive variable jump
-          sum = dot_product(lvec(m,:),dQ(:))
+          sum_m = dot_product(lvec_m(m,:),dQ(:))
+          sum_p = dot_product(lvec_p(m,:),dQ(:))
 
           ! here the sign() function makes sure we only add the right-moving
           ! waves
-          beta_xp(m) = 0.25_dp_t*dtdx*(eval(3) - eval(m))* &
-               (sign(ONE, eval(m)) + ONE)*sum
+          beta_xp(m) = 0.25_dp_t*dtdx*(eval_p(3) - eval_p(m))* &
+               (sign(ONE, eval_p(m)) + ONE)*sum_p
 
           ! here the sign() function makes sure we only add the left-moving
           ! waves
-          beta_xm(m) = 0.25_dp_t*dtdx*(eval(1) - eval(m))* &
-               (ONE - sign(ONE, eval(m)))*sum
+          beta_xm(m) = 0.25_dp_t*dtdx*(eval_m(1) - eval_m(m))* &
+               (ONE - sign(ONE, eval_m(m)))*sum_m
 
        enddo
 
        ! finally, sum up all the jumps 
        
-       ! density
+      ! density
        sum_xm = ZERO
        sum_xp = ZERO
        do n = 1, nwaves
-          sum_xm = sum_xm + beta_xm(n)*rvec(n,iqdens)
-          sum_xp = sum_xp + beta_xp(n)*rvec(n,iqdens)
+          sum_xm = sum_xm + beta_xm(n)*rvec_m(n,iqdens)
+          sum_xp = sum_xp + beta_xp(n)*rvec_p(n,iqdens)
        enddo
 
        Q_l%data(i+1,iqdens) = r_xp + sum_xp
@@ -321,8 +327,8 @@ contains
        sum_xm = ZERO
        sum_xp = ZERO
        do n = 1, nwaves
-          sum_xm = sum_xm + beta_xm(n)*rvec(n,iqxvel)
-          sum_xp = sum_xp + beta_xp(n)*rvec(n,iqxvel)
+          sum_xm = sum_xm + beta_xm(n)*rvec_m(n,iqxvel)
+          sum_xp = sum_xp + beta_xp(n)*rvec_p(n,iqxvel)
        enddo
 
        Q_l%data(i+1,iqxvel) = u_xp + sum_xp
@@ -333,8 +339,8 @@ contains
        sum_xm = ZERO
        sum_xp = ZERO
        do n = 1, nwaves
-          sum_xm = sum_xm + beta_xm(n)*rvec(n,iqpres)
-          sum_xp = sum_xp + beta_xp(n)*rvec(n,iqpres)
+          sum_xm = sum_xm + beta_xm(n)*rvec_m(n,iqpres)
+          sum_xp = sum_xp + beta_xp(n)*rvec_p(n,iqpres)
        enddo
 
        Q_l%data(i+1,iqpres) = p_xp + sum_xp
