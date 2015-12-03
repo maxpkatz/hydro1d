@@ -190,7 +190,7 @@ contains
              dQ_vl % data(i,1) = ZERO
           endif
 
-          ldelta_m % data(i,n) = HALF * dQ_vl % data(i,1)
+          ldelta_m % data(i,n) = dQ_vl % data(i,1)
           
        enddo
 
@@ -198,7 +198,7 @@ contains
        ! now do the fourth order part
 
        if (use_higher_order_limiter) then
-          
+
           do i = Q%grid%lo-2, Q%grid%hi+2
 
              Q_m = Q%data(i-1,n)
@@ -271,7 +271,7 @@ contains
              dQ_vl % data(i,1) = ZERO
           endif
 
-          ldelta_p % data(i,n) = HALF * dQ_vl % data(i,1)
+          ldelta_p % data(i,n) = dQ_vl % data(i,1)
           
        enddo
     
