@@ -44,7 +44,7 @@ module params_module
   ! output parameters
   logical, save :: write_ghost = .false.
   real (kind=dp_t), save :: plot_dt = -1.0_dp_t
-
+  integer, save :: plotfile_num_length = 6
 
   ! namelist
   namelist /params/ nx, xmin, xmax, &
@@ -59,7 +59,9 @@ module params_module
                     grav, &
                     problem_name, &
                     write_ghost, &
-                    plot_dt
+                    plot_dt, &
+                    plotfile_num_length
+  
 
   character (len=32), save :: infile = ""
 

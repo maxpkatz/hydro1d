@@ -20,14 +20,17 @@ contains
     real (kind=dp_t), intent(in) :: t
     integer,          intent(in) :: n
 
-    character (len=6) :: filenum
+    character (len=plotfile_num_length) :: filenum
     character (len=40) :: outfile
+    character (len=20) :: fmt
     integer :: i
     integer :: lun
     real (kind=dp_t) :: p, e, rho
 
+    write(fmt, '("(i", I0, ".", I0, ")")') plotfile_num_length, plotfile_num_length
+
     ! construct the filename and open for output
-    write(unit=filenum,fmt="(i6.6)") n
+    write(unit=filenum,fmt=fmt) n
     if (ppm_temp) then
        outfile = trim(problem_name) // "_ppmT_" // filenum
     else
