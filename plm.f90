@@ -128,26 +128,31 @@ contains
     !-------------------------------------------------------------------------
     ! compute the flattening coefficients
     !-------------------------------------------------------------------------
-    call build(xi_m, U%grid, 1)
-    call build(xi_p, U%grid, 1)
 
-    Q_temp = Q
-    
-    do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
-       Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i,1)
-    enddo
-    
-    call flatten(Q_temp, xi_m)
+    if (use_flattening) then
+       
+       call build(xi_m, U%grid, 1)
+       call build(xi_p, U%grid, 1)
 
-    Q_temp = Q
+       Q_temp = Q
     
-    do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
-       Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i+1,1)
-    enddo    
+       do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
+          Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i,1)
+       enddo
     
-    call flatten(Q_temp, xi_p)
+       call flatten(Q_temp, xi_m)
+
+       Q_temp = Q
+    
+       do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
+          Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i+1,1)
+       enddo
+       
+       call flatten(Q_temp, xi_p)
 
 
+    endif
+       
     !-------------------------------------------------------------------------
     ! compute the monotonized central differences
     !-------------------------------------------------------------------------
@@ -232,12 +237,13 @@ contains
 
 
     ! apply flattening to the slopes
-    do n = 1, nprim
-       do i = Q%grid%lo-2, Q%grid%hi+2
-          ldelta_m%data(i,n) = xi_m%data(i,1)*ldelta_m%data(i,n)
+    if (use_flattening) then
+       do n = 1, nprim
+          do i = Q%grid%lo-2, Q%grid%hi+2
+             ldelta_m%data(i,n) = xi_m%data(i,1)*ldelta_m%data(i,n)
+          enddo
        enddo
-    enddo
-
+    endif
 
 
 
@@ -313,18 +319,21 @@ contains
 
 
     ! apply flattening to the slopes
-    do n = 1, nprim
-       do i = Q%grid%lo-2, Q%grid%hi+2
-          ldelta_p%data(i,n) = xi_p%data(i,1)*ldelta_p%data(i,n)
+    if (use_flattening) then
+       do n = 1, nprim
+          do i = Q%grid%lo-2, Q%grid%hi+2
+             ldelta_p%data(i,n) = xi_p%data(i,1)*ldelta_p%data(i,n)
+          enddo
        enddo
-    enddo
-
+    endif
+       
 
     
     call destroy(dQ_vl)
-    call destroy(xi_m)
-    call destroy(xi_p)
-
+    if (use_flattening) then
+       call destroy(xi_m)
+       call destroy(xi_p)
+    endif
 
     !-------------------------------------------------------------------------
     ! compute left and right primitive variable states

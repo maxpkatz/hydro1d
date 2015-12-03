@@ -35,6 +35,7 @@ module params_module
   ! hydro parameters
   integer, save :: godunov_type = 2
   logical, save :: use_higher_order_limiter = .true.
+  logical, save :: use_flattening = .true.
   logical, save :: invariant_hydro = .false.
   logical, save :: ppm_temp = .false.
   real (kind=dp_t), save :: grav = 0.0_dp_t
@@ -57,6 +58,7 @@ module params_module
                     invariant_hydro, &
                     godunov_type, &
                     use_higher_order_limiter, &
+                    use_flattening, &
                     ppm_temp, &
                     grav, &
                     problem_name, &
