@@ -37,7 +37,6 @@ contains
     real (kind=dp_t) :: ldr_p, ldu_p, ldp_p    
     real (kind=dp_t) :: r_xm, r_xp, u_xm, u_xp, p_xm, p_xp
     real (kind=dp_t) :: beta_xm(nwaves), beta_xp(nwaves)
-    real (kind=dp_t) :: sum_xm, sum_xp
     real (kind=dp_t) :: sum_m, sum_p
     real (kind=dp_t) :: Q_m, Q_c, Q_p
     real (kind=dp_t) :: dQ_l, dQ_c, dQ_r, dQ_lim
@@ -452,40 +451,17 @@ contains
 
        ! finally, sum up all the jumps 
        
-      ! density
-       sum_xm = ZERO
-       sum_xp = ZERO
-       do n = 1, nwaves
-          sum_xm = sum_xm + beta_xm(n)*rvec_m(n,iqdens)
-          sum_xp = sum_xp + beta_xp(n)*rvec_p(n,iqdens)
-       enddo
-
-       Q_l%data(i+1,iqdens) = r_xp + sum_xp
-       Q_r%data(i,iqdens) = r_xm + sum_xm
-
+       ! density
+       Q_l%data(i+1,iqdens) = r_xp + sum(beta_xp(:) * rvec_p(:,iqdens))
+       Q_r%data(i  ,iqdens) = r_xm + sum(beta_xm(:) * rvec_m(:,iqdens))
 
        ! velocity
-       sum_xm = ZERO
-       sum_xp = ZERO
-       do n = 1, nwaves
-          sum_xm = sum_xm + beta_xm(n)*rvec_m(n,iqxvel)
-          sum_xp = sum_xp + beta_xp(n)*rvec_p(n,iqxvel)
-       enddo
-
-       Q_l%data(i+1,iqxvel) = u_xp + sum_xp
-       Q_r%data(i,iqxvel) = u_xm + sum_xm
-
+       Q_l%data(i+1,iqxvel) = u_xp + sum(beta_xp(:) * rvec_p(:,iqxvel))
+       Q_r%data(i  ,iqxvel) = u_xm + sum(beta_xm(:) * rvec_m(:,iqxvel))
 
        ! pressure
-       sum_xm = ZERO
-       sum_xp = ZERO
-       do n = 1, nwaves
-          sum_xm = sum_xm + beta_xm(n)*rvec_m(n,iqpres)
-          sum_xp = sum_xp + beta_xp(n)*rvec_p(n,iqpres)
-       enddo
-
-       Q_l%data(i+1,iqpres) = p_xp + sum_xp
-       Q_r%data(i,iqpres) = p_xm + sum_xm
+       Q_l%data(i+1,iqpres) = p_xp + sum(beta_xp(:) * rvec_p(:,iqpres))
+       Q_r%data(i  ,iqpres) = p_xm + sum(beta_xm(:) * rvec_m(:,iqpres))
 
        
     enddo
