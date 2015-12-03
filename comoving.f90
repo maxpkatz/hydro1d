@@ -20,14 +20,24 @@ contains
     
     integer :: i
 
-    do i = U%grid%lo-U%grid%ng+1, U%grid%hi+U%grid%ng
-       if (invariant_hydro) then
-          vf%data(i,1) = 0.5 * (U%data(i,2) / U%data(i,1) + U%data(i-1,2) / U%data(i-1,1))
-       else
-          vf%data(i,1) = 0.0
-       endif
-    enddo
+    real(kind=dp_t) :: v_l, v_r
 
+    vf % data(:,:) = ZERO
+    
+    if (invariant_hydro) then
+    
+       do i = U%grid%lo-U%grid%ng+1, U%grid%hi+U%grid%ng
+
+          ! Edge based indexing
+          v_l = U % data(i-1,2) / U % data(i-1,1)
+          v_r = U % data(i  ,2) / U % data(i  ,1)
+          
+          vf % data(i,1) = HALF * (v_l + v_r)
+          
+       enddo
+
+    endif
+       
   end subroutine make_interface_velocities
 
 end module interface_velocities_module
