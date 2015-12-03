@@ -190,37 +190,44 @@ contains
              dQ_vl % data(i,1) = ZERO
           endif
 
+          ldelta_m % data(i,n) = HALF * dQ_vl % data(i,1)
+          
        enddo
-    
+
 
        ! now do the fourth order part
-       do i = Q%grid%lo-2, Q%grid%hi+2
 
-          Q_m = Q%data(i-1,n)
-          Q_c = Q%data(i  ,n)
-          Q_p = Q%data(i+1,n)
-
-          if (n == 2) then
-             Q_m = Q_m - vf % data(i,1)
-             Q_c = Q_c - vf % data(i,1)
-             Q_p = Q_p - vf % data(i,1)
-          endif
-
-          dQ_l = Q_c - Q_m
-          dQ_c = HALF * (Q_p - Q_m)
-          dQ_r = Q_p - Q_c          
+       if (use_higher_order_limiter) then
           
-          if (dQ_l * dQ_r > ZERO) then
-             ldelta_m % data(i,n) = &
-                  min((2.0_dp_t/3.0_dp_t)*abs(2.0_dp_t * dQ_c - &
-                      0.25_dp_t*(dQ_vl % data(i+1,1) + dQ_vl % data(i-1,1))), &
-                  min(2.0*abs(dQ_r), 2.0*abs(dQ_l))) * &
-                  sign(ONE, Q_p - Q_m)
-          else
-             ldelta_m % data(i,n) = ZERO
-          endif
+          do i = Q%grid%lo-2, Q%grid%hi+2
 
-       enddo
+             Q_m = Q%data(i-1,n)
+             Q_c = Q%data(i  ,n)
+             Q_p = Q%data(i+1,n)
+
+             if (n == 2) then
+                Q_m = Q_m - vf % data(i,1)
+                Q_c = Q_c - vf % data(i,1)
+                Q_p = Q_p - vf % data(i,1)
+             endif
+
+             dQ_l = Q_c - Q_m
+             dQ_c = HALF * (Q_p - Q_m)
+             dQ_r = Q_p - Q_c          
+
+             if (dQ_l * dQ_r > ZERO) then
+                ldelta_m % data(i,n) = &
+                     min((2.0_dp_t/3.0_dp_t)*abs(2.0_dp_t * dQ_c - &
+                     0.25_dp_t*(dQ_vl % data(i+1,1) + dQ_vl % data(i-1,1))), &
+                     min(2.0*abs(dQ_r), 2.0*abs(dQ_l))) * &
+                     sign(ONE, Q_p - Q_m)
+             else
+                ldelta_m % data(i,n) = ZERO
+             endif
+
+          enddo
+
+       endif
           
     enddo
 
@@ -264,37 +271,44 @@ contains
              dQ_vl % data(i,1) = ZERO
           endif
 
+          ldelta_p % data(i,n) = HALF * dQ_vl % data(i,1)
+          
        enddo
     
 
        ! now do the fourth order part
-       do i = Q%grid%lo-2, Q%grid%hi+2
 
-          Q_m = Q%data(i-1,n)
-          Q_c = Q%data(i  ,n)
-          Q_p = Q%data(i+1,n)
+       if (use_higher_order_limiter) then
+          
+          do i = Q%grid%lo-2, Q%grid%hi+2
 
-          if (n == 2) then
-             Q_m = Q_m - vf % data(i+1,1)
-             Q_c = Q_c - vf % data(i+1,1)
-             Q_p = Q_p - vf % data(i+1,1)
-          endif
+             Q_m = Q%data(i-1,n)
+             Q_c = Q%data(i  ,n)
+             Q_p = Q%data(i+1,n)
 
-          dQ_l = Q_c - Q_m
-          dQ_c = HALF * (Q_p - Q_m)
-          dQ_r = Q_p - Q_c                    
+             if (n == 2) then
+                Q_m = Q_m - vf % data(i+1,1)
+                Q_c = Q_c - vf % data(i+1,1)
+                Q_p = Q_p - vf % data(i+1,1)
+             endif
 
-          if (dQ_l * dQ_r > ZERO) then
-             ldelta_p % data(i,n) = &
-                  min((2.0_dp_t/3.0_dp_t)*abs(2.0_dp_t * dQ_c - &
-                      0.25_dp_t*(dQ_vl % data(i+1,1) + dQ_vl % data(i-1,1))), &
-                  min(2.0*abs(dQ_r), 2.0*abs(dQ_l))) * &
-                  sign(ONE, dQ_c)
-          else
-             ldelta_p % data(i,n) = ZERO
-          endif
+             dQ_l = Q_c - Q_m
+             dQ_c = HALF * (Q_p - Q_m)
+             dQ_r = Q_p - Q_c                    
 
-       enddo
+             if (dQ_l * dQ_r > ZERO) then
+                ldelta_p % data(i,n) = &
+                     min((2.0_dp_t/3.0_dp_t)*abs(2.0_dp_t * dQ_c - &
+                     0.25_dp_t*(dQ_vl % data(i+1,1) + dQ_vl % data(i-1,1))), &
+                     min(2.0*abs(dQ_r), 2.0*abs(dQ_l))) * &
+                     sign(ONE, dQ_c)
+             else
+                ldelta_p % data(i,n) = ZERO
+             endif
+
+          enddo
+
+       endif
           
     enddo
 
