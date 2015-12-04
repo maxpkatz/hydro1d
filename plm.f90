@@ -47,6 +47,8 @@ contains
 
     real (kind=dp_t) :: e
 
+    real (kind=dp_t) :: reference_fac_p, reference_fac_m
+
     integer :: i, m, n
 
     ! piecewise linear slopes 
@@ -421,14 +423,23 @@ contains
        ! These expressions are the V_{L,R} in Colella (1990) at the 
        ! bottom of page 191.  They are also in Saltzman (1994) as
        ! V_ref on page 161.
-       r_xp = r + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldr_p
-       r_xm = r - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldr_m
 
-       u_xp = ux_p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldu_p
-       u_xm = ux_m - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldu_m
+       if (reference_state == 1) then
+          reference_fac_p = HALF * (ONE - dtdx * max(eval_p(3), ZERO))
+          reference_fac_m = HALF * (ONE + dtdx * min(eval_m(1), ZERO))
+       else
+          reference_fac_p = ZERO
+          reference_fac_m = ZERO
+       endif
+       
+       r_xp = r    + reference_fac_p * ldr_p
+       r_xm = r    - reference_fac_m * ldr_m
 
-       p_xp = p + HALF*(ONE - dtdx*max(eval_p(3), ZERO))*ldp_p
-       p_xm = p - HALF*(ONE + dtdx*min(eval_m(1), ZERO))*ldp_m
+       u_xp = ux_p + reference_fac_p * ldu_p
+       u_xm = ux_m - reference_fac_m * ldu_m
+
+       p_xp = p    + reference_fac_p * ldp_p
+       p_xm = p    - reference_fac_m * ldp_m
 
        !                                                   ^
        ! Now compute the interface states.   These are the V expressions
@@ -446,22 +457,38 @@ contains
           sum_p = dot_product(lvec_p(m,:),dQ_p(:))
           
           if (use_tracing) then
+
+             if (reference_state == 1) then
                 
-             ! here the sign() function makes sure we only add the right-moving
-             ! waves 
-            
-             beta_xp(m) = 0.25_dp_t*dtdx*(eval_p(3) - eval_p(m))* &
-                  (sign(ONE, eval_p(m)) + ONE)*sum_p
+                ! here the sign() function makes sure we only add the right-moving
+                ! waves            
+                beta_xp(m) = 0.25_dp_t*dtdx*(eval_p(3) - eval_p(m))* &
+                     (sign(ONE, eval_p(m)) + ONE)*sum_p
 
-             ! here the sign() function makes sure we only add the left-moving
-             ! waves
-             beta_xm(m) = 0.25_dp_t*dtdx*(eval_m(1) - eval_m(m))* &
-                  (ONE - sign(ONE, eval_m(m)))*sum_m
+                ! here the sign() function makes sure we only add the left-moving
+                ! waves
+                beta_xm(m) = 0.25_dp_t*dtdx*(eval_m(1) - eval_m(m))* &
+                     (ONE - sign(ONE, eval_m(m)))*sum_m
 
+             else
+
+                beta_xp(m) =  0.25_dp_t*(ONE - dtdx*eval_p(m))* &
+                     (sign(ONE, eval_p(m)) + ONE)*sum_p
+
+                beta_xm(m) = -0.25_dp_t*(ONE - dtdx*eval_m(m))* &
+                     (ONE - sign(ONE, eval_m(m)))*sum_m                
+
+             endif
+                
           else
 
-             beta_xp(m) = HALF*dtdx*(eval_p(3) - eval_p(m)) * sum_p
-             beta_xm(m) = HALF*dtdx*(eval_m(1) - eval_m(m)) * sum_m
+             if (reference_state == 1) then
+                beta_xp(m) = HALF * dtdx * (eval_p(3) - eval_p(m)) * sum_p
+                beta_xm(m) = HALF * dtdx * (eval_m(1) - eval_m(m)) * sum_m
+             else
+                beta_xp(m) =  HALF * (ONE - dtdx * eval_p(m)) * sum_p
+                beta_xm(m) = -HALF * (ONE + dtdx * eval_m(m)) * sum_m
+             endif
 
           endif
              

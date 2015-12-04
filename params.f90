@@ -37,6 +37,7 @@ module params_module
   logical, save :: use_higher_order_limiter = .true.
   logical, save :: use_flattening = .true.
   logical, save :: use_tracing = .true.
+  integer, save :: reference_state = 1
   logical, save :: invariant_hydro = .false.
   logical, save :: ppm_temp = .false.
   real (kind=dp_t), save :: grav = 0.0_dp_t
@@ -61,6 +62,7 @@ module params_module
                     use_higher_order_limiter, &
                     use_flattening, &
                     use_tracing, &
+                    reference_state, &
                     ppm_temp, &
                     grav, &
                     problem_name, &
