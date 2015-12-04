@@ -166,7 +166,7 @@ contains
     call build(ldelta_p, U%grid, nprim)
 
     ! First do the left-edge slopes
-    
+
     do n = 1, nprim
 
        ! first do the normal MC limiting 
@@ -176,7 +176,7 @@ contains
           Q_c = Q % data(i  ,n)
           Q_p = Q % data(i+1,n)
 
-          if (n == 2) then
+          if (n == iqxvel) then
              Q_m = Q_m - vf % data(i,1)
              Q_c = Q_c - vf % data(i,1)
              Q_p = Q_p - vf % data(i,1)
@@ -209,7 +209,7 @@ contains
              Q_c = Q%data(i  ,n)
              Q_p = Q%data(i+1,n)
 
-             if (n == 2) then
+             if (n == iqxvel) then
                 Q_m = Q_m - vf % data(i,1)
                 Q_c = Q_c - vf % data(i,1)
                 Q_p = Q_p - vf % data(i,1)
@@ -258,7 +258,7 @@ contains
           Q_c = Q % data(i  ,n)
           Q_p = Q % data(i+1,n)
 
-          if (n == 2) then
+          if (n == iqxvel) then
              Q_m = Q_m - vf % data(i+1,1)
              Q_c = Q_c - vf % data(i+1,1)
              Q_p = Q_p - vf % data(i+1,1)
@@ -291,7 +291,7 @@ contains
              Q_c = Q%data(i  ,n)
              Q_p = Q%data(i+1,n)
 
-             if (n == 2) then
+             if (n == iqxvel) then
                 Q_m = Q_m - vf % data(i+1,1)
                 Q_c = Q_c - vf % data(i+1,1)
                 Q_p = Q_p - vf % data(i+1,1)
