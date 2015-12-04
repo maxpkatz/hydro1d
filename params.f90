@@ -36,6 +36,7 @@ module params_module
   integer, save :: godunov_type = 2
   logical, save :: use_higher_order_limiter = .true.
   logical, save :: use_flattening = .true.
+  logical, save :: use_tracing = .true.
   logical, save :: invariant_hydro = .false.
   logical, save :: ppm_temp = .false.
   real (kind=dp_t), save :: grav = 0.0_dp_t
@@ -59,6 +60,7 @@ module params_module
                     godunov_type, &
                     use_higher_order_limiter, &
                     use_flattening, &
+                    use_tracing, &
                     ppm_temp, &
                     grav, &
                     problem_name, &

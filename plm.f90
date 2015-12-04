@@ -411,9 +411,13 @@ contains
 
 
        ! get the eigenvalues and eigenvectors
-       call eigen(r, ux_p, p, cs, lvec_p, rvec_p, eval_p)
-       call eigen(r, ux_m, p, cs, lvec_m, rvec_m, eval_m)
-
+       if (use_tracing) then
+          call eigen(r, ux_p, p, cs, lvec_p, rvec_p, eval_p)
+          call eigen(r, ux_m, p, cs, lvec_m, rvec_m, eval_m)
+       else
+          eval_p = ZERO
+          eval_m = ZERO
+       endif
 
        ! Define the reference states (here xp is the right interface
        ! for the current zone and xm is the left interface for the
@@ -439,24 +443,36 @@ contains
        ! first compute beta_xm and beta_xp -- these are the
        ! coefficients to the right eigenvectors in the eigenvector
        ! expansion (see Colella 1990, page 191)
-       do m = 1, nwaves
+       if (use_tracing) then
+          
+          do m = 1, nwaves
 
-          ! dot product of the current left eigenvector with the
-          ! primitive variable jump
-          sum_m = dot_product(lvec_m(m,:),dQ_m(:))
-          sum_p = dot_product(lvec_p(m,:),dQ_p(:))
+             ! dot product of the current left eigenvector with the
+             ! primitive variable jump
+             sum_m = dot_product(lvec_m(m,:),dQ_m(:))
+             sum_p = dot_product(lvec_p(m,:),dQ_p(:))
 
-          ! here the sign() function makes sure we only add the right-moving
-          ! waves
-          beta_xp(m) = 0.25_dp_t*dtdx*(eval_p(3) - eval_p(m))* &
-               (sign(ONE, eval_p(m)) + ONE)*sum_p
+             ! here the sign() function makes sure we only add the right-moving
+             ! waves
+             beta_xp(m) = 0.25_dp_t*dtdx*(eval_p(3) - eval_p(m))* &
+                  (sign(ONE, eval_p(m)) + ONE)*sum_p
 
-          ! here the sign() function makes sure we only add the left-moving
-          ! waves
-          beta_xm(m) = 0.25_dp_t*dtdx*(eval_m(1) - eval_m(m))* &
-               (ONE - sign(ONE, eval_m(m)))*sum_m
+             ! here the sign() function makes sure we only add the left-moving
+             ! waves
+             beta_xm(m) = 0.25_dp_t*dtdx*(eval_m(1) - eval_m(m))* &
+                  (ONE - sign(ONE, eval_m(m)))*sum_m
+             
+          enddo
 
-       enddo
+       else
+
+          beta_xp = ZERO
+          beta_xm = ZERO
+
+          rvec_p = ZERO
+          rvec_m = ZERO
+
+       endif
 
        ! finally, sum up all the jumps 
        
