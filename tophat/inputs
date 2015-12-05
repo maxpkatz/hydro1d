@@ -12,11 +12,11 @@
  xlboundary = "periodic"
  xrboundary = "periodic"
 
- godunov_type = 0
+ godunov_type = 2
 
  cfl = 0.5
 
- invariant_hydro = T
+ invariant_hydro = 1
 
 /
 
@@ -30,6 +30,6 @@
 
  width = 0.125d0
 
- v_adv = 1.0d0
+ v_adv = 10.0d0
 
 /
