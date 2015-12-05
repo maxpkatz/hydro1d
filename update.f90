@@ -46,9 +46,8 @@ contains
        ! Build a temporary copy of the data.
 
        call build(U_temp, U%grid, U%nvar)
-       do i = U%grid%lo, U%grid%hi
-          U_temp%data(i,:) = U%data(i,:)
-       enddo
+
+       U_temp = U
 
        call fillBCs(U_temp)
 
@@ -69,26 +68,25 @@ contains
           ! we get no contribution from the right zone;
           ! otherwise, we get v * dt / dx.
 
-          f( 1) = -vf%data(i+1,1) * dtdx
+          f(1)  = -vf%data(i+1,1) * dtdx
 
           ! Since we're conservative, the contribution from the
           ! center zone is just the original zone minus
           ! the fractions of the left and right zones.
 
-          f(0) = ONE - max(ZERO,f(-1)) - max(ZERO,f(1))
+          f(0)  = ONE - max(ZERO,f(-1)) - max(ZERO,f(1))
 
           f = max(ZERO,f)
-                    
-       
+          
           if (remap_order .eq. 0) then
 
              do n = 1, 3
-                U % data(i,n) = sum(f * U_temp % data(i-1:i+1,n))
+                U % data(i,n) = sum(f(-1:1) * U_temp % data(i-1:i+1,n))
              enddo
 
           else
 
-             print *, "Cannot handle remap_order > 1 at present."
+             print *, "Cannot handle remap_order > 0 at present."
              stop
 
           endif
