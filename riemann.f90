@@ -64,7 +64,7 @@ contains
 
     integer :: i
 
-    real (kind=dp_t) :: interface_speed
+    real (kind=dp_t) :: interface_speed, u_advect
 
     do i = Uin_l%grid%lo, Uin_l%grid%hi+1
 
@@ -249,7 +249,7 @@ contains
 
        ! Transform back to the space-fixed frame
 
-       if (invariant_hydro .eq. 1) then
+       if (invariant_hydro > 0) then
           u_state = u_state + vf % data(i,1)
        endif
 
@@ -258,11 +258,17 @@ contains
        !   u_state = 0.0_dp_t
        !endif
 
+       if (invariant_hydro .eq. 2) then
+          u_advect = u_state - vf % data(i,1)
+       else
+          u_advect = u_state
+       endif
+
        ! compute the fluxes
-       fluxes%data(i,iudens) = rho_state*u_state
-       fluxes%data(i,iumomx) = rho_state*u_state*u_state + p_state
-       fluxes%data(i,iuener) = rhoe_state*u_state + &
-            0.5_dp_t*rho_state*u_state**2*u_state + p_state*u_state
+       fluxes%data(i,iudens) = (rho_state          ) * u_advect
+       fluxes%data(i,iumomx) = (rho_state * u_state) * u_advect + p_state
+       fluxes%data(i,iuener) = (rhoe_state + HALF * rho_state * u_state**2) * u_advect &
+                             + p_state * u_state
 
     enddo
 
