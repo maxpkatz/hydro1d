@@ -64,7 +64,15 @@ contains
 
     integer :: i
 
+    real (kind=dp_t) :: interface_speed
+
     do i = Uin_l%grid%lo, Uin_l%grid%hi+1
+
+       if (invariant_hydro .eq. 1) then
+          interface_speed = -vf % data(i,1)
+       else
+          interface_speed = ZERO
+       endif
 
        ! left state
        rho_l  = Uin_l%data(i,iudens)
@@ -107,7 +115,7 @@ contains
        
        ! figure out which state we are in, based on the location of
        ! the waves
-       if (ustar > -vf % data(i,1)) then
+       if (ustar > interface_speed) then
 
           ! contact is moving right, we need to understand the L and
           ! *L states
@@ -120,7 +128,7 @@ contains
              ! the wave is a shock -- find the shock speed
              sigma = (lambda_l + lambdastar_l)/2.0_dp_t
              
-             if (sigma > -vf % data(i,1)) then
+             if (sigma > interface_speed) then
                 ! shock is moving to the right -- solution is L state
                 rho_state = rho_l
                 u_state = u_l
@@ -138,7 +146,7 @@ contains
 
           else
              ! the wave is a rarefaction
-             if (lambda_l < -vf % data(i,1) .and. lambdastar_l < -vf % data(i,1)) then
+             if (lambda_l < interface_speed .and. lambdastar_l < interface_speed) then
                 ! rarefaction fan is moving to the left -- solution is
                 ! *L state
                 rho_state = rhostar_l
@@ -146,7 +154,7 @@ contains
                 p_state = pstar
                 rhoe_state = rhoestar_l
                 
-             else if (lambda_l > -vf % data(i,1) .and. lambdastar_l > -vf % data(i,1)) then
+             else if (lambda_l > interface_speed .and. lambdastar_l > interface_speed) then
                 ! rarefaction fan is moving to the right -- solution
                 ! is L state
                 rho_state = rho_l
@@ -168,7 +176,7 @@ contains
           endif
                           
 
-       else if (ustar < -vf % data(i,1)) then
+       else if (ustar < interface_speed) then
           
           ! contact moving left, we need to understand the R and *R
           ! states
@@ -181,7 +189,7 @@ contains
              ! the wave if a shock -- find the shock speed
              sigma = (lambda_r + lambdastar_r)/2.0_dp_t
              
-             if (sigma > -vf % data(i,1)) then
+             if (sigma > interface_speed) then
                 ! shock is moving to the right -- solution is *R state
                 rho_state = rhostar_r
                 u_state = ustar
@@ -199,7 +207,7 @@ contains
 
           else
              ! the wave is a rarefaction
-             if (lambda_r < -vf % data(i,1) .and. lambdastar_r < -vf % data(i,1)) then
+             if (lambda_r < interface_speed .and. lambdastar_r < interface_speed) then
                 ! rarefaction fan is moving to the left -- solution is
                 ! R state
                 rho_state = rho_r
@@ -207,7 +215,7 @@ contains
                 p_state = p_r
                 rhoe_state = rhoe_r
                 
-             else if (lambda_r > -vf % data(i,1) .and. lambdastar_r > -vf % data(i,1)) then
+             else if (lambda_r > interface_speed .and. lambdastar_r > interface_speed) then
                 ! rarefaction fan is moving to the right -- solution
                 ! is *R state
                 rho_state = rhostar_r
