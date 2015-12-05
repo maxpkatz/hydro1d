@@ -14,7 +14,7 @@ contains
   
   subroutine solve_riemann(Uin_l, Uin_r, vf, fluxes)
 
-    use params_module, only: gamma
+    use params_module, only: gamma, invariant_hydro
     use eos_module
 
     type(gridedgevar_t), intent(in   ) :: Uin_l, Uin_r, vf
@@ -240,8 +240,10 @@ contains
        endif
 
        ! Transform back to the space-fixed frame
-       
-       u_state = u_state + vf % data(i,1)
+
+       if (invariant_hydro .eq. 1) then
+          u_state = u_state + vf % data(i,1)
+       endif
 
        ! reflect BC hack
        !if (i == Uin_l%grid%lo .and. Uin_l%grid%xlboundary == "reflect") then

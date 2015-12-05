@@ -24,7 +24,7 @@ contains
 
     vf % data(:,:) = ZERO
     
-    if (invariant_hydro) then
+    if (invariant_hydro > 0) then
     
        do i = U%grid%lo-U%grid%ng+1, U%grid%hi+U%grid%ng
 

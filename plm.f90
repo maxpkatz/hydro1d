@@ -32,7 +32,7 @@ contains
     real (kind=dp_t) :: rvec_p(nwaves,nprim), lvec_p(nwaves,nprim), eval_p(nwaves)    
     real (kind=dp_t) :: dQ_m(nprim), dQ_p(nprim)
 
-    real (kind=dp_t) :: r, ux_m, ux_p, p, cs
+    real (kind=dp_t) :: r, ux, ux_m, ux_p, p, cs
     real (kind=dp_t) :: ldr_m, ldu_m, ldp_m
     real (kind=dp_t) :: ldr_p, ldu_p, ldp_p    
     real (kind=dp_t) :: r_xm, r_xp, u_xm, u_xp, p_xm, p_xp
@@ -390,6 +390,7 @@ contains
     do i = U%grid%lo-1, U%grid%hi+1
 
        r    = Q%data(i,iqdens)
+       ux   = Q%data(i,iqxvel)
        ux_m = Q%data(i,iqxvel) - vf % data(i  ,1)
        ux_p = Q%data(i,iqxvel) - vf % data(i+1,1)
        p    = Q%data(i,iqpres)
@@ -413,8 +414,8 @@ contains
 
 
        ! get the eigenvalues and eigenvectors
-       call eigen(r, ux_p, p, cs, lvec_p, rvec_p, eval_p)
-       call eigen(r, ux_m, p, cs, lvec_m, rvec_m, eval_m)
+       call eigen(r, ux, p, cs, lvec_p, rvec_p, eval_p)
+       call eigen(r, ux, p, cs, lvec_m, rvec_m, eval_m)
 
        ! Define the reference states (here xp is the right interface
        ! for the current zone and xm is the left interface for the

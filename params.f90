@@ -38,7 +38,8 @@ module params_module
   logical, save :: use_flattening = .true.
   logical, save :: use_tracing = .true.
   integer, save :: reference_state = 1
-  logical, save :: invariant_hydro = .false.
+  integer, save :: invariant_hydro = 0
+  integer, save :: remap_order = 0
   logical, save :: ppm_temp = .false.
   real (kind=dp_t), save :: grav = 0.0_dp_t
   
@@ -58,6 +59,7 @@ module params_module
                     cfl, &
                     gamma, &
                     invariant_hydro, &
+                    remap_order, &
                     godunov_type, &
                     use_higher_order_limiter, &
                     use_flattening, &
