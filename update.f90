@@ -62,22 +62,20 @@ contains
           ! we get no contribution from the left zone;
           ! otherwise, we get v * dt / dx.
 
-          f(-1) =  vf%data(i  ,1) * dtdx
+          f(-1) = max(ZERO, vf%data(i  ,1) * dtdx)
 
           ! If the right interface is moving to the right,
           ! we get no contribution from the right zone;
-          ! otherwise, we get v * dt / dx.
+          ! otherwise, we get -v * dt / dx.
 
-          f(1)  = -vf%data(i+1,1) * dtdx
+          f(1)  = max(ZERO, -vf%data(i+1,1) * dtdx)
 
           ! Since we're conservative, the contribution from the
           ! center zone is just the original zone minus
           ! the fractions of the left and right zones.
 
-          f(0)  = ONE - max(ZERO,f(-1)) - max(ZERO,f(1))
+          f(0)  = ONE - f(-1) - f(1)
 
-          f = max(ZERO,f)
-          
           if (remap_order .eq. 0) then
 
              do n = 1, 3
