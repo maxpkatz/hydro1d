@@ -26,7 +26,7 @@ contains
     real (kind=dp_t),    intent(inout) :: dt
 
     integer :: i
-    real (kind=dp_t) :: cs, p, e, rho, mom, vel
+    real (kind=dp_t) :: cs, p, e, rho, mom, vel, dx
     
     dt = huge(0.0_dp_t)
 
@@ -43,8 +43,14 @@ contains
 
        cs = sqrt(gamma*p/rho)
 
-       dt = min(dt, U%grid%dx/(abs(vel) + cs))
-       
+       dx = U % grid % dx
+
+       if (invariant_hydro .eq. 2) then
+          dt = min(dt, dx / abs(vel), dx / cs)
+       else
+          dt = min(dt, dx / (abs(vel) + cs))
+       endif
+
     enddo    
 
     dt = cfl*dt
