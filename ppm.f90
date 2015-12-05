@@ -16,30 +16,33 @@ module interface_states_ppm_module
 
 contains
   
-  subroutine make_interface_states_ppm(U, U_l, U_r, dt)
+  subroutine make_interface_states_ppm(U, U_l, U_r, vf, dt)
 
     type(gridvar_t),     intent(in   ) :: U
-    type(gridedgevar_t), intent(inout) :: U_l, U_r
+    type(gridedgevar_t), intent(inout) :: U_l, U_r, vf
     real (kind=dp_t),    intent(in   ) :: dt
 
     type(gridvar_t) :: Q
     type(gridedgevar_t) :: Q_l, Q_r
 
-    real (kind=dp_t) :: rvec(nwaves,nprim), lvec(nwaves,nprim), eval(nwaves)
+    real (kind=dp_t) :: rvec_m(nwaves,nprim), lvec_m(nwaves,nprim), eval_m(nwaves)
+    real (kind=dp_t) :: rvec_p(nwaves,nprim), lvec_p(nwaves,nprim), eval_p(nwaves)    
 
-    real (kind=dp_t) :: r, ux, p, cs
+    real (kind=dp_t) :: r, ux_m, ux_p, p, cs
     real (kind=dp_t) :: beta_xm(nwaves), beta_xp(nwaves)
 
     real (kind=dp_t) :: dq0, dqp
     real (kind=dp_t) :: Iminus(nwaves,nprim), Iplus(nwaves,nprim)
     real (kind=dp_t) :: Qref_xm(nprim), Qref_xp(nprim)
 
-    type(gridedgevar_t) :: Qminus, Qplus
-    type(gridvar_t) :: Q6
+    type(gridedgevar_t) :: Qminus_m, Qplus_m, Qminus_p, Qplus_p
+    type(gridvar_t) :: Q6_m, Q6_p
 
-    real (kind=dp_t) :: sigma
+    real (kind=dp_t) :: sigma_m, sigma_p
+    real (kind=dp_t) :: Q_mm, Q_m, Q_c, Q_p, Q_pp
 
-    type(gridvar_t) :: xi
+    type(gridvar_t) :: Q_temp
+    type(gridvar_t) :: xi_m, xi_p
 
     real (kind=dp_t) :: dtdx
 
@@ -84,60 +87,86 @@ contains
     !-------------------------------------------------------------------------
     ! compute the flattening coefficients
     !-------------------------------------------------------------------------
-    call build(xi, U%grid, 1)
-    call flatten(Q, xi)
 
+    if (use_flattening) then
+       
+       call build(xi_m, U%grid, 1)
+       call build(xi_p, U%grid, 1)
+
+       Q_temp = Q
+    
+       do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
+          Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i,1)
+       enddo
+    
+       call flatten(Q_temp, xi_m)
+
+       Q_temp = Q
+    
+       do i = U%grid%lo - U%grid%ng+1, U%grid%hi+U%grid%ng
+          Q_temp%data(i,2) = Q_temp%data(i,2) - vf % data(i+1,1)
+       enddo
+       
+       call flatten(Q_temp, xi_p)
+
+
+    endif
 
     !-------------------------------------------------------------------------
     ! interpolate the cell-centered data to the edges
     !-------------------------------------------------------------------------
-    
+
     ! For each cell, we will find the Qminus and Qplus states -- these
     ! are the - and + edges of the cell.
-    call build(Qminus, U%grid, nprim)
-    call build(Qplus,  U%grid, nprim)
+    call build(Qminus_m, U%grid, nprim)
+    call build(Qplus_m,  U%grid, nprim)
     
     do n = 1, nprim
        do i = U%grid%lo-2, U%grid%hi+2
 
+          Q_mm = Q % data(i-2,n)
+          Q_m  = Q % data(i-1,n)
+          Q_c  = Q % data(i  ,n)
+          Q_p  = Q % data(i+1,n)
+          Q_pp = Q % data(i+2,n)
+
+          if (n == iqxvel) then
+             Q_mm = Q_mm - vf % data(i,1)
+             Q_m  = Q_m  - vf % data(i,1)
+             Q_c  = Q_c  - vf % data(i,1)
+             Q_p  = Q_p  - vf % data(i,1)
+             Q_pp = Q_pp - vf % data(i,1)
+          endif          
+          
           ! dq (C&W Eq. 1.7)
-          dq0 = HALF*(Q%data(i+1,n) - Q%data(i-1,n))
-          dqp = HALF*(Q%data(i+2,n) - Q%data(i,n))
+          dq0 = HALF*(Q_p - Q_m)
+          dqp = HALF*(Q_pp - Q_c)
 
           ! limiting (C&W Eq. 1.8)
-          if ( (Q%data(i+1,n) - Q%data(i,n))* &
-               (Q%data(i,n) - Q%data(i-1,n)) > ZERO) then
-             dq0 = sign(ONE,dq0)* &
-                  min( abs(dq0), &
-                       2.0_dp_t*abs(Q%data(i,n) - Q%data(i-1,n)), &
-                       2.0_dp_t*abs(Q%data(i+1,n) - Q%data(i,n)) )
+          if ( (Q_p - Q_c) * (Q_c - Q_m) > ZERO) then
+             dq0 = sign(ONE,dq0) * min( abs(dq0), TWO*abs(Q_c - Q_m), TWO*abs(Q_p - Q_c) )
           else
              dq0 = ZERO
           endif
 
-          if ( (Q%data(i+2,n) - Q%data(i+1,n))* &
-               (Q%data(i+1,n) - Q%data(i,n)) > ZERO) then
-             dqp = sign(ONE,dqp)* &
-                  min( abs(dqp), &
-                       2.0_dp_t*abs(Q%data(i+1,n) - Q%data(i,n)), &
-                       2.0_dp_t*abs(Q%data(i+2,n) - Q%data(i+1,n)) )
+          if ( (Q_pp - Q_p) * (Q_p - Q_c) > ZERO) then
+             dqp = sign(ONE,dqp) * min( abs(dqp), TWO*abs(Q_p - Q_c), TWO*abs(Q_pp - Q_p) )
           else
              dqp = ZERO
           endif
 
           ! cubic (C&W Eq. 1.6)
-          Qplus%data(i,n) = HALF*(Q%data(i,n) + Q%data(i+1,n)) - &
-               (ONE/6.0_dp_t)*(dqp - dq0)
+          Qplus_m%data(i,n) = HALF*(Q_c + Q_p) - (ONE/SIX)*(dqp - dq0)
 
-          Qminus%data(i+1,n) = Qplus%data(i,n)
+          Qminus_m%data(i+1,n) = Qplus_m%data(i,n)
 
           ! make sure that we didn't over or undersoot -- this may not
           ! be needed, but is discussed in Colella & Sekora (2008)
-          Qplus%data(i,n) = max(Qplus%data(i,n), min(Q%data(i,n),Q%data(i+1,n)))
-          Qplus%data(i,n) = min(Qplus%data(i,n), max(Q%data(i,n),Q%data(i+1,n)))
+          Qplus_m%data(i,n) = max(Qplus_m%data(i,n), min(Q_c,Q_p))
+          Qplus_m%data(i,n) = min(Qplus_m%data(i,n), max(Q_c,Q_p))
 
-          Qminus%data(i+1,n) = max(Qminus%data(i+1,n), min(Q%data(i,n),Q%data(i+1,n)))
-          Qminus%data(i+1,n) = min(Qminus%data(i+1,n), max(Q%data(i,n),Q%data(i+1,n)))
+          Qminus_m%data(i+1,n) = max(Qminus_m%data(i+1,n), min(Q_c,Q_p))
+          Qminus_m%data(i+1,n) = min(Qminus_m%data(i+1,n), max(Q_c,Q_p))
 
        enddo
     enddo
@@ -162,29 +191,34 @@ contains
     do n = 1, nprim
        do i = U%grid%lo-1, U%grid%hi+1
 
-          if ( (Qplus%data(i,n) - Q%data(i,n)) * &
-               (Q%data(i,n) - Qminus%data(i,n)) <= ZERO) then
-             Qminus%data(i,n) = Q%data(i,n)
-             Qplus%data(i,n) = Q%data(i,n)
+          Q_c = Q % data(i,n)
 
-          else if ( (Qplus%data(i,n) - Qminus%data(i,n)) * &
-                    (Q%data(i,n) - &
-                      HALF*(Qminus%data(i,n) + Qplus%data(i,n))) > &
-                   (Qplus%data(i,n) - Qminus%data(i,n))**2/6.0_dp_t ) then
+          if (n == iqxvel) then
+             Q_c = Q_c - vf % data(i,1)
+          endif                    
+          
+          if ( (Qplus_m%data(i,n) - Q_c) * (Q_c - Qminus_m%data(i,n)) <= ZERO) then
+             Qminus_m%data(i,n) = Q_c
+             Qplus_m%data(i,n) = Q_c
+
+          else if ( (Qplus_m%data(i,n) - Qminus_m%data(i,n)) * &
+                    (Q_c - &
+                      HALF*(Qminus_m%data(i,n) + Qplus_m%data(i,n))) > &
+                   (Qplus_m%data(i,n) - Qminus_m%data(i,n))**2/SIX ) then
 
           ! alternate test from Colella & Sekora (2008)
           !else if (abs(Qminus%data(i,n) - Q%data(i,n)) >= &
           !     2.0*abs(Qplus%data(i,n) - Q%data(i,n))) then
-             Qminus%data(i,n) = 3.0_dp_t*Q%data(i,n) - 2.0_dp_t*Qplus%data(i,n)
+             Qminus_m%data(i,n) = THREE*Q_c - TWO*Qplus_m%data(i,n)
 
-          else if (-(Qplus%data(i,n) - Qminus%data(i,n))**2/6.0_dp_t > &
-                    (Qplus%data(i,n) - Qminus%data(i,n)) * &
-                    (Q%data(i,n) - &
-                           HALF*(Qminus%data(i,n) + Qplus%data(i,n))) ) then
+          else if (-(Qplus_m%data(i,n) - Qminus_m%data(i,n))**2/SIX > &
+                    (Qplus_m%data(i,n) - Qminus_m%data(i,n)) * &
+                    (Q_c - &
+                           HALF*(Qminus_m%data(i,n) + Qplus_m%data(i,n))) ) then
 
           !else if (abs(Qplus%data(i,n) - Q%data(i,n)) >= &
           !     2.0*abs(Qminus%data(i,n) - Q%data(i,n))) then
-             Qplus%data(i,n) = 3.0_dp_t*Q%data(i,n) - 2.0_dp_t*Qminus%data(i,n)
+             Qplus_m%data(i,n) = THREE*Q_c - TWO*Qminus_m%data(i,n)
 
           endif
 
@@ -192,17 +226,156 @@ contains
     enddo
 
     ! define Q6
-    call build(Q6,  U%grid, nprim)
+    call build(Q6_m,  U%grid, nprim)
 
     do n = 1, nprim
        do i = U%grid%lo-1, U%grid%hi+1
 
-          Q6%data(i,n) = 6.0_dp_t*Q%data(i,n) - &
-               3.0_dp_t*(Qminus%data(i,n) + Qplus%data(i,n))
+          Q_c = Q % data(i,n)
+
+          if (n == iqxvel) then
+             Q_c = Q_c - vf % data(i,1)
+          endif
+          
+          Q6_m%data(i,n) = SIX*Q_c - THREE*(Qminus_m%data(i,n) + Qplus_m%data(i,n))
 
        enddo
     enddo
 
+
+    !-------------------------------------------------------------------------
+    ! interpolate the cell-centered data to the edges
+    !-------------------------------------------------------------------------
+
+    ! For each cell, we will find the Qminus and Qplus states -- these
+    ! are the - and + edges of the cell.
+    call build(Qminus_p, U%grid, nprim)
+    call build(Qplus_p,  U%grid, nprim)
+    
+    do n = 1, nprim
+       do i = U%grid%lo-2, U%grid%hi+2
+
+          Q_mm = Q % data(i-2,n)
+          Q_m  = Q % data(i-1,n)
+          Q_c  = Q % data(i  ,n)
+          Q_p  = Q % data(i+1,n)
+          Q_pp = Q % data(i+2,n)
+
+          if (n == iqxvel) then
+             Q_mm = Q_mm - vf % data(i+1,1)
+             Q_m  = Q_m  - vf % data(i+1,1)
+             Q_c  = Q_c  - vf % data(i+1,1)
+             Q_p  = Q_p  - vf % data(i+1,1)
+             Q_pp = Q_pp - vf % data(i+1,1)
+          endif
+          
+          ! dq (C&W Eq. 1.7)
+          dq0 = HALF*(Q_p - Q_m)
+          dqp = HALF*(Q_pp - Q_c)
+
+          ! limiting (C&W Eq. 1.8)
+          if ( (Q_p - Q_c) * (Q_c - Q_m) > ZERO) then
+             dq0 = sign(ONE,dq0) * min( abs(dq0), TWO*abs(Q_c - Q_m), TWO*abs(Q_p - Q_c) )
+          else
+             dq0 = ZERO
+          endif
+
+          if ( (Q_pp - Q_p) * (Q_p - Q_c) > ZERO) then
+             dqp = sign(ONE,dqp) * min( abs(dqp), TWO*abs(Q_p - Q_c), TWO*abs(Q_pp - Q_p) )
+          else
+             dqp = ZERO
+          endif
+
+          ! cubic (C&W Eq. 1.6)
+          Qplus_p%data(i,n) = HALF*(Q_c + Q_p) - (ONE/SIX)*(dqp - dq0)
+
+          Qminus_p%data(i+1,n) = Qplus_p%data(i,n)
+
+          ! make sure that we didn't over or undersoot -- this may not
+          ! be needed, but is discussed in Colella & Sekora (2008)
+          Qplus_p%data(i,n) = max(Qplus_p%data(i,n), min(Q_c,Q_p))
+          Qplus_p%data(i,n) = min(Qplus_p%data(i,n), max(Q_c,Q_p))
+
+          Qminus_p%data(i+1,n) = max(Qminus_p%data(i+1,n), min(Q_c,Q_p))
+          Qminus_p%data(i+1,n) = min(Qminus_p%data(i+1,n), max(Q_c,Q_p))
+
+       enddo
+    enddo
+
+
+    !-------------------------------------------------------------------------
+    ! construct the parameters for the parabolic reconstruction polynomials
+    !-------------------------------------------------------------------------
+
+    ! Our parabolic profile has the form:
+    !
+    !  q(xi) = qminus + xi*(qplus - qminus + q6 * (1-xi) )
+    !
+    ! with xi = (x - xl)/dx, where xl is the interface of the left
+    ! edge of the cell.  qminus and qplus are the values of the 
+    ! parabola on the left and right edges of the current cell.
+
+    ! Limit the left and right values of the parabolic interpolant
+    ! (C&W Eq. 1.10).  Here the loop is over cells, and considers the
+    ! values on either side of the center of the cell (Qminus_p and
+    ! Qplus).
+    do n = 1, nprim
+       do i = U%grid%lo-1, U%grid%hi+1
+
+          Q_c = Q % data(i,n)
+
+          if (n == iqxvel) then
+             Q_c = Q_c - vf % data(i+1,1)
+          endif
+          
+          if ( (Qplus_p%data(i,n) - Q_c) * &
+               (Q_c - Qminus_p%data(i,n)) <= ZERO) then
+             Qminus_p%data(i,n) = Q_c
+             Qplus_p%data(i,n) = Q_c
+
+          else if ( (Qplus_p%data(i,n) - Qminus_p%data(i,n)) * &
+                    (Q_c - &
+                      HALF*(Qminus_p%data(i,n) + Qplus_p%data(i,n))) > &
+                   (Qplus_p%data(i,n) - Qminus_p%data(i,n))**2/SIX ) then
+
+          ! alternate test from Colella & Sekora (2008)
+          !else if (abs(Qminus%data(i,n) - Q_c) >= &
+          !     2.0*abs(Qplus%data(i,n) - Q_c)) then
+             Qminus_p%data(i,n) = THREE*Q_c - TWO*Qplus_p%data(i,n)
+
+          else if (-(Qplus_p%data(i,n) - Qminus_p%data(i,n))**2/SIX > &
+                    (Qplus_p%data(i,n) - Qminus_p%data(i,n)) * &
+                    (Q_c - &
+                           HALF*(Qminus_p%data(i,n) + Qplus_p%data(i,n))) ) then
+
+          !else if (abs(Qplus%data(i,n) - Q_c) >= &
+          !     2.0*abs(Qminus%data(i,n) - Q_c)) then
+             Qplus_p%data(i,n) = THREE*Q_c - TWO*Qminus_p%data(i,n)
+
+          endif
+
+       enddo
+    enddo
+
+    ! define Q6
+    call build(Q6_p,  U%grid, nprim)
+
+    do n = 1, nprim
+       do i = U%grid%lo-1, U%grid%hi+1
+
+          Q_c = Q % data(i,n)
+
+          if (n == iqxvel) then
+             Q_c = Q_c - vf % data(i+1,1)
+          endif
+          
+          Q6_p%data(i,n) = SIX*Q_c - THREE*(Qminus_p%data(i,n) + Qplus_p%data(i,n))
+
+       enddo
+    enddo
+
+    
+    
 
     !-------------------------------------------------------------------------
     ! compute left and right primitive variable states
@@ -228,17 +401,18 @@ contains
 
     do i = U%grid%lo-1, U%grid%hi+1
 
-       r  = Q%data(i,iqdens)
-       ux = Q%data(i,iqxvel)
-       p  = Q%data(i,iqpres)
-
+       r    = Q%data(i,iqdens)
+       ux_m = Q%data(i,iqxvel) - vf % data(i  ,1)
+       ux_p = Q%data(i,iqxvel) - vf % data(i+1,1)
+       p    = Q%data(i,iqpres)
 
        ! compute the sound speed
        cs = sqrt(gamma*p/r)
 
 
        ! get the eigenvalues and eigenvectors
-       call eigen(r, ux, p, cs, lvec, rvec, eval)
+       call eigen(r, ux_m, p, cs, lvec_m, rvec_m, eval_m)
+       call eigen(r, ux_p, p, cs, lvec_p, rvec_p, eval_p)       
 
 
        ! integrate the parabola in the cell from the left interface
@@ -247,25 +421,35 @@ contains
        ! defining Iplus.  See Almgren et al. 2010 (Eq. 30) or Colella
        ! & Sekora (2008), or Miller & Colella (2002), Eq. 90.
        do m = 1, nwaves
-          sigma = abs(eval(m))*dtdx
+          sigma_m = abs(eval_m(m))*dtdx
+          sigma_p = abs(eval_p(m))*dtdx
+          
           do n = 1, nprim
 
              ! only integrate if the wave is moving toward the interface
              ! (see Miller & Colella, Eg. 90).  This may not be necessary.
-             if (eval(m) >= ZERO) then
-                Iplus(m,n) = Qplus%data(i,n) - HALF*sigma* &
-                     (Qplus%data(i,n) - Qminus%data(i,n) - &
-                     (ONE - (2.0_dp_t/3.0_dp_t)*sigma)*Q6%data(i,n))
+             if (eval_p(m) >= ZERO) then
+                Iplus(m,n) = Qplus_p%data(i,n) - HALF*sigma_p* &
+                     (Qplus_p%data(i,n) - Qminus_p%data(i,n) - &
+                     (ONE - (TWO/THREE)*sigma_p)*Q6_p%data(i,n))
              else
                 Iplus(m,n) = Q%data(i,n)
+
+                if (n == iqxvel) then
+                   Iplus(m,n) = Iplus(m,n) - vf % data(i+1,1)
+                endif
              endif
 
-             if (eval(m) <= ZERO) then
-                Iminus(m,n) = Qminus%data(i,n) + HALF*sigma* &
-                     (Qplus%data(i,n) - Qminus%data(i,n) + &
-                     (ONE - (2.0_dp_t/3.0_dp_t)*sigma)*Q6%data(i,n))
+             if (eval_m(m) <= ZERO) then
+                Iminus(m,n) = Qminus_m%data(i,n) + HALF*sigma_m* &
+                     (Qplus_m%data(i,n) - Qminus_m%data(i,n) + &
+                     (ONE - (TWO/THREE)*sigma_m)*Q6_m%data(i,n))
              else
                 Iminus(m,n) = Q%data(i,n)
+
+                if (n == iqxvel) then
+                   Iminus(m,n) = Iminus(m,n) - vf % data(i,1)
+                endif
              endif
 
           enddo
@@ -302,13 +486,13 @@ contains
           Qref_xp(:) = Q%data(i,:)
        else
           ! Miller and Colella method
-          if (eval(3) >= ZERO) then
+          if (eval_p(3) >= ZERO) then
              Qref_xp(:) = Iplus(3,:)
           else
              Qref_xp(:) = Q%data(i,:)
           endif
 
-          if (eval(1) <= ZERO) then
+          if (eval_m(1) <= ZERO) then
              Qref_xm(:) = Iminus(1,:)
           else
              Qref_xm(:) = Q%data(i,:)
@@ -318,68 +502,65 @@ contains
 
        ! compute the dot product of each left eigenvector with (qref - I)
        do m = 1, nwaves    ! loop over waves
-          beta_xm(m) = ZERO
-          beta_xp(m) = ZERO
-
-          beta_xm(m) = beta_xm(m) + dot_product(lvec(m,:),Qref_xm(:) - Iminus(m,:))
-          beta_xp(m) = beta_xp(m) + dot_product(lvec(m,:),Qref_xp(:) - Iplus(m,:))
+          beta_xm(m) = dot_product(lvec_m(m,:),Qref_xm(:) - Iminus(m,:))
+          beta_xp(m) = dot_product(lvec_p(m,:),Qref_xp(:) - Iplus(m,:) )
        enddo
 
        ! finally, sum up all the jumps
 
        ! density
        Q_l%data(i+1,iqdens) = ZERO
-       Q_r%data(i,iqdens) = ZERO
+       Q_r%data(i  ,iqdens) = ZERO
 
        do n = 1, nwaves
-          if (eval(n) >= ZERO) then
+          if (eval_p(n) >= ZERO) then
              Q_l%data(i+1,iqdens) = Q_l%data(i+1,iqdens) + &
-                  beta_xp(n)*rvec(n,iqdens)
+                  beta_xp(n)*rvec_p(n,iqdens)
           endif
 
-          if (eval(n) <= ZERO) then
+          if (eval_m(n) <= ZERO) then
              Q_r%data(i,iqdens) = Q_r%data(i,iqdens) + &
-                  beta_xm(n)*rvec(n,iqdens)
+                  beta_xm(n)*rvec_m(n,iqdens)
           endif
        enddo
 
        Q_l%data(i+1,iqdens) = Qref_xp(iqdens) - Q_l%data(i+1,iqdens)
-       Q_r%data(i,iqdens)   = Qref_xm(iqdens) - Q_r%data(i,iqdens)
+       Q_r%data(i  ,iqdens) = Qref_xm(iqdens) - Q_r%data(i  ,iqdens)
 
 
        ! velocity
        Q_l%data(i+1,iqxvel) = ZERO
-       Q_r%data(i,iqxvel) = ZERO
+       Q_r%data(i  ,iqxvel) = ZERO
 
        do n = 1, nwaves
-          if (eval(n) >= ZERO) then
+          if (eval_p(n) >= ZERO) then
              Q_l%data(i+1,iqxvel) = Q_l%data(i+1,iqxvel) + &
-                  beta_xp(n)*rvec(n,iqxvel)
+                  beta_xp(n)*rvec_p(n,iqxvel)
           endif
 
-          if (eval(n) <= ZERO) then
+          if (eval_m(n) <= ZERO) then
              Q_r%data(i,iqxvel) = Q_r%data(i,iqxvel) + &
-                  beta_xm(n)*rvec(n,iqxvel)
+                  beta_xm(n)*rvec_m(n,iqxvel)
           endif
        enddo
 
        Q_l%data(i+1,iqxvel) = Qref_xp(iqxvel) - Q_l%data(i+1,iqxvel)
-       Q_r%data(i,iqxvel)   = Qref_xm(iqxvel) - Q_r%data(i,iqxvel)
+       Q_r%data(i  ,iqxvel) = Qref_xm(iqxvel) - Q_r%data(i  ,iqxvel)
 
 
        ! pressure
        Q_l%data(i+1,iqpres) = ZERO
-       Q_r%data(i,iqpres) = ZERO
+       Q_r%data(i  ,iqpres) = ZERO
 
        do n = 1, nwaves
-          if (eval(n) >= ZERO) then
+          if (eval_p(n) >= ZERO) then
              Q_l%data(i+1,iqpres) = Q_l%data(i+1,iqpres) + &
-                  beta_xp(n)*rvec(n,iqpres)
+                  beta_xp(n)*rvec_p(n,iqpres)
           endif
 
-          if (eval(n) <= ZERO) then
+          if (eval_m(n) <= ZERO) then
              Q_r%data(i,iqpres) = Q_r%data(i,iqpres) + &
-                  beta_xm(n)*rvec(n,iqpres)
+                  beta_xm(n)*rvec_m(n,iqpres)
           endif
        enddo
 
@@ -387,16 +568,24 @@ contains
        Q_r%data(i,iqpres)   = Qref_xm(iqpres) - Q_r%data(i,iqpres)
        
        ! flatten
-       Q_l%data(i+1,:) = (ONE - xi%data(i,1))*Q%data(i,:) + xi%data(i,1)*Q_l%data(i+1,:)
-       Q_r%data(i,:)   = (ONE - xi%data(i,1))*Q%data(i,:) + xi%data(i,1)*Q_r%data(i,:)
+       if (use_flattening) then
+          Q_l%data(i+1,:) = (ONE - xi_p%data(i,1))*Q%data(i,:) + xi_p%data(i,1)*Q_l%data(i+1,:)
+          Q_r%data(i  ,:) = (ONE - xi_m%data(i,1))*Q%data(i,:) + xi_m%data(i,1)*Q_r%data(i,:)
+       endif
     enddo
 
     ! clean-up
-    call destroy(Qminus)
-    call destroy(Qplus)
-    call destroy(Q6)
+    call destroy(Qminus_m)
+    call destroy(Qplus_m)
+    call destroy(Qminus_p)
+    call destroy(Qplus_p)
+    call destroy(Q6_p)
+    call destroy(Q6_m)
 
-    call destroy(xi)
+    if (use_flattening) then
+       call destroy(xi_m)
+       call destroy(xi_p)
+    endif
 
 
     !-------------------------------------------------------------------------

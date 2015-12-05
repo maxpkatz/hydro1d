@@ -95,7 +95,7 @@ program hydro1d
         if (ppm_temp) then
            call make_interface_states_ppm_temp(U, U_l, U_r, dt)
         else
-           call make_interface_states_ppm(U, U_l, U_r, dt)
+           call make_interface_states_ppm(U, U_l, U_r, vf, dt)
         endif
      endif
 
