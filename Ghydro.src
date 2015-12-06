@@ -20,6 +20,7 @@ FSOURCE += main.f90 \
            probparams.f90 \
 	   riemann.f90 \
 	   run_diag.f90 \
+	   slope.f90 \
            update.f90 \
 	   user_bc.f90 \
            variables.f90 
