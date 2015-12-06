@@ -22,7 +22,8 @@ contains
 
     type(gridvar_t) :: Uold, U_temp
 
-    real (kind=dp_t) :: dtdx, f(-1:1)
+    real (kind=dp_t) :: dtdx
+    real (kind=dp_t) :: U_av(-1:1, U%nvar), f(-1:1)
     real (kind=dp_t) :: ull, ul, uc, ur, urr
     real (kind=dp_t) :: dul, duc, dur
     real (kind=dp_t) :: dul_l, dul_c, dul_r
@@ -60,7 +61,9 @@ contains
        ! Remap assumes uniform grid spacing, but it's straightforward to adjust
        ! for non-uniform spacing.
 
-       dtdx = dt / U%grid%dx
+       dx = U % grid % dx
+
+       dtdx = dt / dx
 
        do i = U%grid%lo, U%grid%hi
 
@@ -82,23 +85,21 @@ contains
 
           f( 0) = ONE - f(-1) - f(1)                       
 
-          dx = U % grid % dx
-          
           if (remap_order .eq. 0) then
 
-             do n = 1, 3
-                U % data(i,n) = sum(f(-1:1) * U_temp % data(i-1:i+1,n))
+             do n = 1, U % nvar
+                U_av(-1:1,n) = U_temp % data(i-1:i+1,n)
              enddo
 
           else if (remap_order .eq. 1) then
 
-             dxll = (ONE + vf % data(i-1,1) * dtdx - vf % data(i-2,1) * dtdx) * U % grid % dx
-             dxl  = (ONE + vf % data(i  ,1) * dtdx - vf % data(i-1,1) * dtdx) * U % grid % dx
-             dxc  = (ONE + vf % data(i+1,1) * dtdx - vf % data(i  ,1) * dtdx) * U % grid % dx
-             dxr  = (ONE + vf % data(i+2,1) * dtdx - vf % data(i+1,1) * dtdx) * U % grid % dx
-             dxrr = (ONE + vf % data(i+3,1) * dtdx - vf % data(i+2,1) * dtdx) * U % grid % dx             
+             dxll = (ONE + vf % data(i-1,1) * dtdx - vf % data(i-2,1) * dtdx) * dx
+             dxl  = (ONE + vf % data(i  ,1) * dtdx - vf % data(i-1,1) * dtdx) * dx
+             dxc  = (ONE + vf % data(i+1,1) * dtdx - vf % data(i  ,1) * dtdx) * dx
+             dxr  = (ONE + vf % data(i+2,1) * dtdx - vf % data(i+1,1) * dtdx) * dx
+             dxrr = (ONE + vf % data(i+3,1) * dtdx - vf % data(i+2,1) * dtdx) * dx             
              
-             do n = 1, 3
+             do n = 1, U % nvar
              
                 ! Our strategy is to construct a linear reconstruction of the
                 ! data in each zone, and then integrate over each portion of the
@@ -151,23 +152,21 @@ contains
 
                 ! Now that we have the slopes, integrate the portion of each zone that overlaps.
 
-                U % data(i,n) = ZERO
-
                 ! First, the contribution from the zone on the left. If it has moved to the right, then
                 ! the integral of the state in this region is equal to (v_face * dt)
                 ! multiplied by the average value of the reconstructed profile between
                 ! x_{i-1/2} and x_{i-1/2} + (v_face * dt). Since the slope is linear,
                 ! this is simply equal to the value at x_{i-1/2} + (v_face * dt) / 2.
 
-                U % data(i,n) = U % data(i,n) + f(-1) * (ul + HALF * (dxl + f(-1) * dx) * dul)
+                U_av(-1, n) = ul + HALF * (dxl - f(-1) * dx) * dul
 
                 ! Contribution from the zone in the center.
 
-                U % data(i,n) = U % data(i,n) + f( 0) * (uc + HALF * (f(-1) * dx - f( 1) * dx) * duc)
+                U_av( 0, n) = uc + HALF * (f(-1) * dx - f( 1) * dx) * duc
                 
                 ! Now, the contribution from the zone on the right.
 
-                U % data(i,n) = U % data(i,n) + f( 1) * (ur - HALF * (dxr + f( 1) * dx) * dur)                               
+                U_av( 1, n) = ur - HALF * (dxr - f( 1) * dx) * dur
 
              enddo
 
@@ -177,6 +176,12 @@ contains
              stop
 
           endif
+
+          ! Now sum up all the contributions.
+
+          do n = 1, U % nvar
+             U % data(i,n) = dot_product(f(:), U_av(:,n))
+          enddo
 
        enddo
 
