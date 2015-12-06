@@ -70,6 +70,7 @@ $(odir)/plm.o : $(odir)/params.o
 $(odir)/plm.o : $(odir)/eos.o
 $(odir)/plm.o : $(odir)/eigen.o
 $(odir)/plm.o : $(odir)/flatten.o
+$(odir)/plm.o : $(odir)/slope.o
  
 $(odir)/ppm.o : $(odir)/datatypes.o
 $(odir)/ppm.o : $(odir)/grid.o
