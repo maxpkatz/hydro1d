@@ -23,6 +23,12 @@ contains
     type(gridvar_t) :: Uold, U_temp
 
     real (kind=dp_t) :: dtdx, f(-1:1)
+    real (kind=dp_t) :: ull, ul, uc, ur, urr
+    real (kind=dp_t) :: dul, duc, dur
+    real (kind=dp_t) :: dul_l, dul_c, dul_r
+    real (kind=dp_t) :: duc_l, duc_c, duc_r
+    real (kind=dp_t) :: dur_l, dur_c, dur_r
+    real (kind=dp_t) :: dx, dxll, dxl, dxc, dxr, dxrr
     
     integer :: i, n
 
@@ -62,29 +68,112 @@ contains
           ! we get no contribution from the left zone;
           ! otherwise, we get v * dt / dx.
 
-          f(-1) = max(ZERO, vf%data(i  ,1) * dtdx)
+          f(-1) = max(ZERO,  vf%data(i  ,1) * dtdx)
 
           ! If the right interface is moving to the right,
           ! we get no contribution from the right zone;
           ! otherwise, we get -v * dt / dx.
 
-          f(1)  = max(ZERO, -vf%data(i+1,1) * dtdx)
+          f( 1) = max(ZERO, -vf%data(i+1,1) * dtdx)
 
           ! Since we're conservative, the contribution from the
           ! center zone is just the original zone minus
           ! the fractions of the left and right zones.
 
-          f(0)  = ONE - f(-1) - f(1)
+          f( 0) = ONE - f(-1) - f(1)                       
 
+          dx = U % grid % dx
+          
           if (remap_order .eq. 0) then
 
              do n = 1, 3
                 U % data(i,n) = sum(f(-1:1) * U_temp % data(i-1:i+1,n))
              enddo
 
+          else if (remap_order .eq. 1) then
+
+             dxll = (ONE + vf % data(i-1,1) * dtdx - vf % data(i-2,1) * dtdx) * U % grid % dx
+             dxl  = (ONE + vf % data(i  ,1) * dtdx - vf % data(i-1,1) * dtdx) * U % grid % dx
+             dxc  = (ONE + vf % data(i+1,1) * dtdx - vf % data(i  ,1) * dtdx) * U % grid % dx
+             dxr  = (ONE + vf % data(i+2,1) * dtdx - vf % data(i+1,1) * dtdx) * U % grid % dx
+             dxrr = (ONE + vf % data(i+3,1) * dtdx - vf % data(i+2,1) * dtdx) * U % grid % dx             
+             
+             do n = 1, 3
+             
+                ! Our strategy is to construct a linear reconstruction of the
+                ! data in each zone, and then integrate over each portion of the
+                ! Lagrangian zones that overlap with the original Eulerian zone.
+
+                ull = U_temp % data(i-2,n)
+                ul  = U_temp % data(i-1,n)
+                uc  = U_temp % data(i  ,n)
+                ur  = U_temp % data(i+1,n)
+                urr = U_temp % data(i+2,n)
+
+                ! For example, in zone i, the slope is u'(x) = (u_{i+1} - u_{i-1}) / (x_{i+1} - x_{i-1}),
+                ! where the zone indices are evaluated in the Lagrangian sense.
+
+                dul_l = (ul  - ull) / (HALF * dxl + HALF * dxll)
+                dul_c = (uc  - ull) / (dxl + HALF * (dxll + dxc))
+                dul_r = (uc  - ul ) / (HALF * dxl + HALF * dxc )
+
+                dul = TWO * min(abs(dul_r), abs(dul_l))
+                
+                if (dul_r * dul_l > ZERO) then
+                   dul = min(abs(dul_c), abs(dul)) * sign(ONE, dul_c)
+                else
+                   dul = ZERO
+                endif
+                
+                duc_l = (uc  - ul ) / (HALF * dxc + HALF * dxl )
+                duc_c = (ur  - ul ) / (dxc + HALF * (dxl  + dxr))
+                duc_r = (ur  - uc ) / (HALF * dxr + HALF * dxc )
+
+                duc = TWO * min(abs(duc_r), abs(duc_l))
+                
+                if (duc_r * duc_l > ZERO) then
+                   duc = min(abs(duc_c), abs(duc)) * sign(ONE, duc_c)
+                else
+                   duc = ZERO
+                endif
+                
+                dur_l = (ur  - uc ) / (HALF * dxr + HALF * dxc )
+                dur_c = (urr - uc ) / (dxr + HALF * (dxc  + dxrr))
+                dur_r = (urr - ur ) / (HALF * dxrr + HALF * dxr)
+
+                dur = TWO * min(abs(dur_r), abs(dur_l))
+                
+                if (dur_r * dur_l > ZERO) then
+                   dur = min(abs(dur_c), abs(dur)) * sign(ONE, dur_c)
+                else
+                   dur = ZERO
+                endif
+
+                ! Now that we have the slopes, integrate the portion of each zone that overlaps.
+
+                U % data(i,n) = ZERO
+
+                ! First, the contribution from the zone on the left. If it has moved to the right, then
+                ! the integral of the state in this region is equal to (v_face * dt)
+                ! multiplied by the average value of the reconstructed profile between
+                ! x_{i-1/2} and x_{i-1/2} + (v_face * dt). Since the slope is linear,
+                ! this is simply equal to the value at x_{i-1/2} + (v_face * dt) / 2.
+
+                U % data(i,n) = U % data(i,n) + f(-1) * (ul + HALF * (dxl + f(-1) * dx) * dul)
+
+                ! Contribution from the zone in the center.
+
+                U % data(i,n) = U % data(i,n) + f( 0) * (uc + HALF * (f(-1) * dx - f( 1) * dx) * duc)
+                
+                ! Now, the contribution from the zone on the right.
+
+                U % data(i,n) = U % data(i,n) + f( 1) * (ur - HALF * (dxr + f( 1) * dx) * dur)                               
+
+             enddo
+
           else
 
-             print *, "Cannot handle remap_order > 0 at present."
+             print *, "Cannot handle remap_order > 1 at present."
              stop
 
           endif
