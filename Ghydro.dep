@@ -107,6 +107,7 @@ $(odir)/update.o : $(odir)/grid.o
 $(odir)/update.o : $(odir)/variables.o
 $(odir)/update.o : $(odir)/params.o
 $(odir)/update.o : $(odir)/comoving.o
+$(odir)/update.o : $(odir)/slope.o
  
 $(odir)/user_bc.o : $(odir)/grid.o
 $(odir)/user_bc.o : $(odir)/variables.o

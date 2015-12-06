@@ -5,6 +5,7 @@ module update_module
   use variables_module
   use params_module
   use bcs_module
+  use slope_module
   
   implicit none
 
@@ -24,12 +25,10 @@ contains
 
     real (kind=dp_t) :: dtdx
     real (kind=dp_t) :: U_av(-1:1, U%nvar), f(-1:1)
-    real (kind=dp_t) :: ull, ul, uc, ur, urr
+    real (kind=dp_t) :: ul(-2:2), uc(-2:2), ur(-2:2)
+    real (kind=dp_t) :: dxl(-2:2), dxc(-2:2), dxr(-2:2)
     real (kind=dp_t) :: dul, duc, dur
-    real (kind=dp_t) :: dul_l, dul_c, dul_r
-    real (kind=dp_t) :: duc_l, duc_c, duc_r
-    real (kind=dp_t) :: dur_l, dur_c, dur_r
-    real (kind=dp_t) :: dx, dxll, dxl, dxc, dxr, dxrr
+    real (kind=dp_t) :: dx
     
     integer :: i, n
 
@@ -93,62 +92,25 @@ contains
 
           else if (remap_order .eq. 1) then
 
-             dxll = (ONE + vf % data(i-1,1) * dtdx - vf % data(i-2,1) * dtdx) * dx
-             dxl  = (ONE + vf % data(i  ,1) * dtdx - vf % data(i-1,1) * dtdx) * dx
-             dxc  = (ONE + vf % data(i+1,1) * dtdx - vf % data(i  ,1) * dtdx) * dx
-             dxr  = (ONE + vf % data(i+2,1) * dtdx - vf % data(i+1,1) * dtdx) * dx
-             dxrr = (ONE + vf % data(i+3,1) * dtdx - vf % data(i+2,1) * dtdx) * dx             
-             
              do n = 1, U % nvar
              
                 ! Our strategy is to construct a linear reconstruction of the
                 ! data in each zone, and then integrate over each portion of the
                 ! Lagrangian zones that overlap with the original Eulerian zone.
 
-                ull = U_temp % data(i-2,n)
-                ul  = U_temp % data(i-1,n)
-                uc  = U_temp % data(i  ,n)
-                ur  = U_temp % data(i+1,n)
-                urr = U_temp % data(i+2,n)
+                ul = U_temp % data(i-3:i+1,n)
+                uc = U_temp % data(i-2:i+2,n)
+                ur = U_temp % data(i-1:i+3,n)
 
-                ! For example, in zone i, the slope is u'(x) = (u_{i+1} - u_{i-1}) / (x_{i+1} - x_{i-1}),
-                ! where the zone indices are evaluated in the Lagrangian sense.
+                dxl = (ONE + vf % data(i-2:i+2,1) * dtdx - vf % data(i-3:i+1,1) * dtdx) * dx
+                dxc = (ONE + vf % data(i-1:i+3,1) * dtdx - vf % data(i-2:i+2,1) * dtdx) * dx
+                dxr = (ONE + vf % data(i  :i+4,1) * dtdx - vf % data(i-1:i+3,1) * dtdx) * dx
+                
+                ! Construct the limited slopes
 
-                dul_l = (ul  - ull) / (HALF * dxl + HALF * dxll)
-                dul_c = (uc  - ull) / (dxl + HALF * (dxll + dxc))
-                dul_r = (uc  - ul ) / (HALF * dxl + HALF * dxc )
-
-                dul = TWO * min(abs(dul_r), abs(dul_l))
-                
-                if (dul_r * dul_l > ZERO) then
-                   dul = min(abs(dul_c), abs(dul)) * sign(ONE, dul_c)
-                else
-                   dul = ZERO
-                endif
-                
-                duc_l = (uc  - ul ) / (HALF * dxc + HALF * dxl )
-                duc_c = (ur  - ul ) / (dxc + HALF * (dxl  + dxr))
-                duc_r = (ur  - uc ) / (HALF * dxr + HALF * dxc )
-
-                duc = TWO * min(abs(duc_r), abs(duc_l))
-                
-                if (duc_r * duc_l > ZERO) then
-                   duc = min(abs(duc_c), abs(duc)) * sign(ONE, duc_c)
-                else
-                   duc = ZERO
-                endif
-                
-                dur_l = (ur  - uc ) / (HALF * dxr + HALF * dxc )
-                dur_c = (urr - uc ) / (dxr + HALF * (dxc  + dxrr))
-                dur_r = (urr - ur ) / (HALF * dxrr + HALF * dxr)
-
-                dur = TWO * min(abs(dur_r), abs(dur_l))
-                
-                if (dur_r * dur_l > ZERO) then
-                   dur = min(abs(dur_c), abs(dur)) * sign(ONE, dur_c)
-                else
-                   dur = ZERO
-                endif
+                dul = slope(ul, dxl)
+                duc = slope(uc, dxc)
+                dur = slope(ur, dxr)
 
                 ! Now that we have the slopes, integrate the portion of each zone that overlaps.
 
@@ -158,15 +120,15 @@ contains
                 ! x_{i-1/2} and x_{i-1/2} + (v_face * dt). Since the slope is linear,
                 ! this is simply equal to the value at x_{i-1/2} + (v_face * dt) / 2.
 
-                U_av(-1, n) = ul + HALF * (dxl - f(-1) * dx) * dul
+                U_av(-1, n) = ul(0) + HALF * (dxl(0) - f(-1) * dx) * dul
 
                 ! Contribution from the zone in the center.
 
-                U_av( 0, n) = uc + HALF * (f(-1) * dx - f( 1) * dx) * duc
+                U_av( 0, n) = uc(0) + HALF * (f(-1) * dx - f( 1) * dx) * duc
                 
                 ! Now, the contribution from the zone on the right.
 
-                U_av( 1, n) = ur - HALF * (dxr - f( 1) * dx) * dur
+                U_av( 1, n) = ur(0) - HALF * (dxr(0) - f( 1) * dx) * dur
 
              enddo
 
