@@ -367,7 +367,7 @@ contains
                 beta_xp(m) =  0.25_dp_t*(ONE - dtdx*eval_p(m))* &
                      (sign(ONE, eval_p(m)) + ONE)*sum_p
 
-                beta_xm(m) = -0.25_dp_t*(ONE - dtdx*eval_m(m))* &
+                beta_xm(m) = -0.25_dp_t*(ONE + dtdx*eval_m(m))* &
                      (ONE - sign(ONE, eval_m(m)))*sum_m                
 
              endif
